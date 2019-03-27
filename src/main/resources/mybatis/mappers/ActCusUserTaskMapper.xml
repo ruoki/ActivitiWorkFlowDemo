@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zr.activiti.dao.CusUserTaskDao">
+	<resultMap type="com.zr.activiti.entity.CusUserTask" id="requireResult">
+		<result property="id" column="id" />
+		<result property="procDefKey" column="PROC_DEF_KEY" />
+		<result property="procDefName" column="PROC_DEF_NAME" />
+		<result property="taskDefKey" column="TASK_DEF_KEY" />
+		<result property="taskName" column="TASK_NAME" />
+		<result property="activityType" column="ACTIVITY_TYPE" />
+		<result property="taskType" column="TASK_TYPE" />
+		<result property="candidate_ids" column="CANDIDATE_IDS" />
+		<result property="candidate_name" column="CANDIDATE_NAME" />
+		<result property="group_id" column="GROUP_ID" />
+		<result property="group_name" column="GROUP_NAME" />
+	</resultMap>
+	<select id="getBeanById" resultMap="requireResult" parameterType="int">
+		select * from act_cus_user_task where id=#{id} 
+	</select>
+	
+	<select id="findByProcDefKey" resultMap="requireResult" parameterType="String">
+		select * from act_cus_user_task where PROC_DEF_KEY=#{procDefKey} 
+	</select>
+	<select id="findByProcAndActivityType" resultMap="requireResult" parameterType="String">
+		select * from act_cus_user_task where PROC_DEF_KEY=#{procDefKey} AND ACTIVITY_TYPE=#{activityType}
+	</select>
+	
+	<select id="findByProcAndTask" resultMap="requireResult" parameterType="String">
+		select * from act_cus_user_task where PROC_DEF_KEY=#{procDefKey} AND TASK_DEF_KEY=#{taskDefKey}
+	</select>
+	<select id="getAllList" resultMap="requireResult" >
+		select * from act_cus_user_task
+	</select>
+	
+	
+	<select id="deleteByProcDefKey" parameterType="String">
+		delete from act_cus_user_task where PROC_DEF_KEY=#{procDefKey}
+	</select>
+	
+	<select id="deleteAll">
+		delete from act_cus_user_task
+	</select>
+	
+	<insert id="add" useGeneratedKeys="true" keyProperty="id" parameterType="com.zr.activiti.entity.CusUserTask">
+	  insert into act_cus_user_task 
+	  (id,PROC_DEF_KEY,PROC_DEF_NAME,TASK_DEF_KEY,TASK_NAME,ACTIVITY_TYPE,TASK_TYPE,CANDIDATE_NAME,CANDIDATE_IDS,GROUP_ID,GROUP_NAME)
+	  values 
+	  (#{id},#{procDefKey},#{procDefName},#{taskDefKey},#{taskName},#{activityType},#{taskType},#{candidate_name},#{candidate_ids},#{group_id},#{group_name})
+	</insert>
+	<update id="update" parameterType="com.zr.activiti.entity.CusUserTask">
+		update act_cus_user_task 
+		<set >
+	      <if test="procDefKey != null" >
+	        PROC_DEF_KEY =#{procDefKey},
+	      </if>
+	      <if test="procDefName != null" >
+	        PROC_DEF_NAME=#{procDefName},
+	      </if>
+	      <if test="taskDefKey != null" >
+	        TASK_DEF_KEY=#{taskDefKey},
+	      </if>
+	      <if test="taskName != null" >
+	        TASK_NAME=#{taskName},
+	      </if>
+	      <if test="activityType != null" >
+	        ACTIVITY_TYPE=#{activityType},
+	      </if>
+	      <if test="taskType != null" >
+	        TASK_TYPE=#{taskType},
+	      </if>
+	      <if test="candidate_name != null" >
+	        CANDIDATE_NAME=#{candidate_name},
+	      </if>
+	      <if test="candidate_ids != null" >
+	        CANDIDATE_IDS=#{candidate_ids},
+	      </if>
+	      <if test="group_id != null" >
+	        GROUP_ID=#{group_id},
+	      </if>
+	      <if test="group_name != null" >
+	        GROUP_NAME=#{group_name},
+	      </if>
+	    </set>
+		where id=#{id}
+	</update>
+	
+	
+</mapper>

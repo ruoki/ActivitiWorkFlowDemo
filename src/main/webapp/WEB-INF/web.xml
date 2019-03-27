@@ -1,0 +1,74 @@
+<!DOCTYPE web-app PUBLIC
+ "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+ "http://java.sun.com/dtd/web-app_2_3.dtd" >
+
+<web-app version="3.0" xmlns="http://java.sun.com/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee 
+    http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+  	<display-name>Archetype Created Web Application</display-name>
+
+	<!-- springMVC start -->
+	<!-- 当监听器在启动Spring容器时会自动查找Web-INF/lib目录下名为applicationContext.xml配置文件，
+	当然也可以设置参数指定配置文件的具体位置，特别是有多个配置文件的情况,指定配置文件的具体位置如下： -->
+	<context-param>
+		<param-name>contextConfigLocation</param-name>
+		<param-value>classpath:spring/springContext.xml,
+		classpath:spring/spring-*.xml</param-value>
+	</context-param>
+	<servlet>
+		<servlet-name>SpringMVC</servlet-name>
+		<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+		<init-param>
+			<param-name>contextConfigLocation</param-name>
+			<param-value>classpath:spring/springContext.xml</param-value>
+		</init-param>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>SpringMVC</servlet-name>
+	    <url-pattern>/</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+	    <servlet-name>SpringMVC</servlet-name>
+	    <url-pattern>/service/*</url-pattern>
+	</servlet-mapping>
+	<session-config>
+	    <session-timeout>30</session-timeout>
+	</session-config>
+	<listener>
+		<!-- Spring容器启动监听器 -->
+		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+	</listener>
+	
+	<!-- 配置编码方式过滤器,注意一点:要配置在所有过滤器的前面 -->
+	<filter>
+	    <filter-name>CharacterEncodingFilter</filter-name>
+	    <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+	    <init-param>
+	    	<param-name>encoding</param-name>
+	    	<param-value>utf-8</param-value>
+	    </init-param>
+	</filter>
+	<filter-mapping>
+	    <filter-name>CharacterEncodingFilter</filter-name>
+	    <url-pattern>/*</url-pattern>
+	</filter-mapping>
+	
+	<!-- 配置编码过滤 -->
+   	<filter>
+	    <filter-name>EncoidingFilter</filter-name>
+	    <filter-class>com.zr.activiti.utils.EncoidingFilter</filter-class>
+	    
+	    <init-param>
+	       <param-name>Encoding</param-name>
+	       <param-value>utf-8</param-value>
+	    </init-param>
+	</filter>
+	  
+	<filter-mapping>
+	    <filter-name>EncoidingFilter</filter-name>
+	    <url-pattern>/*</url-pattern>
+	</filter-mapping> 
+	<!-- springMVC end -->
+</web-app>

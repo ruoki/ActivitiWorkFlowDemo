@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--命名空间应该是对应接口的包名+接口名 -->
+<mapper namespace="com.zr.activiti.dao.UserDAO">
+	<resultMap type="User" id="requireResult">
+		<result property="userId" column="id"/>
+		<result property="userCode" column="code"/>
+		<result property="userName" column="name"/>
+		<result property="password" column="password"/>
+	</resultMap>
+	<!--id应该是接口中的方法，结果类型如没有配置别名则应该使用全名称 -->
+	<select id="getAllUsers" resultMap="requireResult">
+		SELECT * FROM user
+	</select>
+	
+    <!-- 模糊查询用户 -->
+    <select id="findLike" parameterType="User" resultMap="requireResult">
+    	SELECT * FROM user where 1=1
+    		<if test="userCode != null" >
+	        	and code like CONCAT("%","${userCode}","%")
+	      	</if>
+	      	<if test="userName != null" >
+	        	and name like CONCAT("%","${userName}","%")
+	      	</if>
+	      	<if test="password != null" >
+	        	and password=#{password}
+	      	</if>
+	    	  	order by name desc
+    </select>
+	<select id="getUserById" resultMap="requireResult">
+		SELECT * FROM user WHERE id = #{userId}
+	</select>
+	
+	<select id="getUserByCode" resultMap="requireResult">
+		SELECT * FROM user WHERE code = #{userCode}
+	</select>
+	
+	<insert id="add" parameterType="User">
+		INSERT INTO user (id,code,name,password)
+		VALUES (#{userId},#{userCode},#{userName},#{password})
+	</insert>
+	
+	<delete id="delete" parameterType="String" >
+		DELETE FROM user WHERE id=#{userId}
+	</delete>
+	<delete id="deleteAll">
+		DELETE FROM user
+	</delete>
+	
+	<update id="update">
+		UPDATE user
+		<set >
+	      <if test="userCode != null" >
+	        code =#{userCode},
+	      </if>
+	      <if test="userName != null" >
+	        name=#{userName},
+	      </if>
+	      <if test="password != null" >
+	        password=#{password},
+	      </if>
+	    </set>
+		where id=#{userId}
+	</update>
+	
+	
+    <select id="findUserById" parameterType="String" resultMap="UserResult">
+    	SELECT * FROM user WHERE status = '0' and id = #{userId};
+    </select>
+    
+</mapper>

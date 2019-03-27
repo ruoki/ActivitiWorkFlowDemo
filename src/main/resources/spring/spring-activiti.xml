@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.1.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.1.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.1.xsd">
+		
+
+	<!-- ==================== Activiti配置 start =================== -->
+	<!-- 单例json对象 -->
+    <bean id="objectMapper" class="com.fasterxml.jackson.databind.ObjectMapper"/>
+
+	<!-- activiti的processEngine配置 -->
+	<bean id="processEngineConfiguration" class="org.activiti.spring.SpringProcessEngineConfiguration">
+	  	<property name="dataSource" ref="jdbcDataSource" />
+	  	<property name="transactionManager" ref="transactionManager" />
+	  	<!-- 自动创建表 -->
+	  	<property name="databaseSchemaUpdate" value="false" />
+	  	<!-- 是否激活Activiti的任务调度 -->
+	  	<property name="jobExecutorActivate" value="false" />
+	  	<!-- 是否开启工作的数据日志 -->
+	    <!-- <property name="enableDatabaseEventLogging" value="true" /> -->
+	    <!--<property name="history" value="full"/>-->
+        <property name="processDefinitionCacheLimit" value="10"/>
+        <!-- mail -->
+        <!-- <property name="mailServerHost" value="localhost"/>
+        <property name="mailServerUsername" value="kafeitu"/>
+        <property name="mailServerPassword" value="000000"/>
+        <property name="mailServerPort" value="2025"/> -->
+	    <!-- UUID作为主键生成策略  -->
+        <!-- <property name="idGenerator" ref="uuidGenerator" /> -->
+        
+        <!-- 生成流程图的字体 -->
+        <property name="activityFontName" value="宋体"/>
+        <property name="labelFontName" value="宋体"/>
+        
+        <!-- 缓存支持
+        <property name="processDefinitionCache">
+            <bean class="me.kafeitu.demo.activiti.util.cache.DistributedCache" />
+        </property>-->
+
+        <!-- 自动部署 -->
+        <!-- <property name="deploymentResources">
+            <list>
+                <value>classpath*:/deployments/*</value>
+            </list>
+        </property> -->
+
+        <!-- 自定义表单字段类型 -->
+        <!-- <property name="customFormTypes">
+            <list>
+                <bean class="me.kafeitu.demo.activiti.activiti.form.UsersFormType"/>
+            </list>
+        </property> -->
+		<!--不创建identity表 -->
+		<property name="dbIdentityUsed" value="false"/>
+        <!-- 自定义用户管理 -->
+        <property name="customSessionFactories">
+        	<list>
+        		<bean class="com.zr.activiti.utils.CustomUserEntityManagerFactory">
+        			<property name="customUserEntityManager" ref="customUserEntityManager"></property>
+        		</bean>
+        		<bean class="com.zr.activiti.utils.CustomGroupEntityManagerFactory">
+        			<property name="customGroupEntityManager" ref="customGroupEntityManager"></property>
+        		</bean>
+        	</list>
+        </property>
+  	</bean>
+  	<bean id="customUserEntityManager" class="com.zr.activiti.utils.CustomUserEntityManager"></bean>
+    <bean id="customGroupEntityManager" class="com.zr.activiti.utils.CustomGroupEntityManager"></bean>
+    
+    
+    <!-- 加载activiti引擎processEngine --> 
+	<bean id="processEngine" class="org.activiti.spring.ProcessEngineFactoryBean" destroy-method="destroy">
+  		<property name="processEngineConfiguration" ref="processEngineConfiguration" />
+	</bean>
+	
+	<!-- activiti的7大服务接口 -->
+	<bean id="repositoryService" factory-bean="processEngine" factory-method="getRepositoryService" />
+	<bean id="runtimeService" factory-bean="processEngine" factory-method="getRuntimeService" />
+	<bean id="taskService" factory-bean="processEngine" factory-method="getTaskService" />
+	<bean id="formService" factory-bean="processEngine" factory-method="getFormService" />
+	<bean id="historyService" factory-bean="processEngine" factory-method="getHistoryService" />
+	<bean id="managementService" factory-bean="processEngine" factory-method="getManagementService" />
+	<!-- <bean id="identityService" factory-bean="processEngine" factory-method="getIdentityService" /> -->
+	<!-- ==================== Activiti配置 end =================== -->
+</beans>

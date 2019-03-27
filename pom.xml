@@ -1,0 +1,313 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.zr.activiti</groupId>
+  <artifactId>ActivitiWorkFlowDemo</artifactId>
+  <packaging>war</packaging>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>ActivitiWorkFlowDemo Maven Webapp</name>
+  <url>http://maven.apache.org</url>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	<junit.version>4.10</junit.version>
+    <spring.version>4.1.3.RELEASE</spring.version>
+    <jackson.version>2.7.4</jackson.version>
+    <activiti.version>5.22.0</activiti.version>
+    <mysql.version>5.1.38</mysql.version>
+    <mybatis.version>3.4.1</mybatis.version>
+    <batik.version>1.7</batik.version>
+    <xml-apis.version>1.3.04</xml-apis.version>
+  </properties>
+
+  <dependencies>
+  
+  	<!-- junit start -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  	<!-- junit end -->
+  	
+  	<!-- spring start -->
+  	<!--Spring框架核心库 -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>${spring.version}</version>
+    </dependency>
+    <!-- Spring MVC -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-webmvc</artifactId>
+        <version>${spring.version}</version>
+    </dependency>
+  	<!-- spring end -->
+  	
+  	<!--jackson start-->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+  	<!--jackson end-->
+    
+  	<!-- myBatis start -->
+  	<!--Spring java数据库访问包，在本例中主要用于提供数据源 -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-jdbc</artifactId>
+        <version>${spring.version}</version>
+    </dependency>
+    <!--mysql数据库驱动 -->
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>${mysql.version}</version>
+    </dependency>
+    <!-- mybatis ORM框架 -->
+    <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>${mybatis.version}</version>
+    </dependency>
+    <!--mybatis-spring适配器 -->
+    <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis-spring</artifactId>
+        <version>1.3.0</version>
+    </dependency>
+    <!--log4j日志包 -->
+    <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-core</artifactId>
+        <version>2.6.1</version>
+    </dependency>
+  	<!-- myBatis end -->
+  	
+  	<!-- activiti start -->
+  	<dependency>
+		<groupId>org.activiti</groupId>
+		<artifactId>activiti-engine</artifactId>
+		<version>${activiti.version}</version>
+	</dependency>
+
+	<dependency>
+		<groupId>org.activiti</groupId>
+		<artifactId>activiti-spring</artifactId>
+		<version>${activiti.version}</version>
+	</dependency>
+	<!-- <dependency>
+		<groupId>org.activiti</groupId>
+		<artifactId>activiti-bpmn-model</artifactId>
+		<version>${activiti.version}</version>
+	</dependency>
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-bpmn-layout</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency>
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-common-rest</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency>
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-crystalball</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency> 
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-explorer</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency>-->
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-diagram-rest</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency>
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-json-converter</artifactId>
+	    <version>${activiti.version}</version>
+       	<exclusions>
+       		<exclusion>
+       			<artifactId>commons-collections</artifactId>
+       			<groupId>commons-collections</groupId>
+       		</exclusion>
+       	</exclusions>
+	</dependency>
+	<!-- <dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-modeler</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency>
+	<dependency>
+	    <groupId>org.activiti</groupId>
+	    <artifactId>activiti-simple-workflow</artifactId>
+	    <version>${activiti.version}</version>
+	</dependency> -->
+	<!-- 
+        <dependency>
+            <groupId>org.apache.geronimo.specs</groupId>
+            <artifactId>geronimo-servlet_3.0_spec</artifactId>
+            <version>1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>7.0</version>
+            <scope>provided</scope>
+        </dependency> -->
+		<!-- Batik的包主要是用来解析html中的svg的内容 -->
+		<dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-transcoder</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-dom</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-bridge</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-css</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-anim</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-codec</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-ext</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-gvt</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-script</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-parser</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-svg-dom</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-svggen</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-util</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-xml</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-js</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>batik-awt-util</artifactId>
+        	<version>${batik.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.xmlgraphics</groupId>
+        	<artifactId>xmlgraphics-commons</artifactId>
+        	<version>1.2</version>
+        </dependency>
+        <dependency>
+        	<groupId>xml-apis</groupId>
+        	<artifactId>xml-apis-ext</artifactId>
+        	<version>${xml-apis.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>xml-apis</groupId>
+        	<artifactId>xml-apis</artifactId>
+        	<version>${xml-apis.version}</version>
+        </dependency>
+		<!-- 文件上传依赖 -->
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.4</version>
+		</dependency>
+        <dependency>
+        	<groupId>commons-collections</groupId>
+        	<artifactId>commons-collections</artifactId>
+        	<version>3.2.1</version>
+        </dependency>
+        <dependency>
+        	<groupId>commons-beanutils</groupId>
+        	<artifactId>commons-beanutils</artifactId>
+        	<version>1.8.0</version>
+        </dependency>
+        <dependency>
+        	<groupId>commons-lang</groupId>
+        	<artifactId>commons-lang</artifactId>
+        	<version>2.6</version>
+        </dependency>
+  	<!-- activiti end -->
+  	
+  	<!-- JSON解析 start -->
+  	<!-- Gson 将bean转换json确保数据的正确 -->
+  	<dependency>
+		<groupId>com.google.code.gson</groupId>
+		<artifactId>gson</artifactId>
+		<version>2.8.0</version>
+	</dependency>
+	<!-- FastJson将Json转换Bean -->
+	<dependency>
+		<groupId>com.alibaba</groupId>
+		<artifactId>fastjson</artifactId>
+		<version>1.2.46</version>
+	</dependency>
+  	<!-- JSON解析 end -->
+  	
+  </dependencies>
+</project>
