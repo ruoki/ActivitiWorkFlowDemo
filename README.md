@@ -1,0 +1,2 @@
+# ActivitiWorkFlowDemo
+Activiti是现在应用很广的一个流程框架，自己在学习过程中看到官网有Activiti Modeler可以使用页面管理Activiti流程，所以试着自己整合SpringMVC+Activiti Modeler。
