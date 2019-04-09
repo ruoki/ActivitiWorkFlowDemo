@@ -15,6 +15,11 @@ Date: 2019-04-09 10:22:02
 
 SET FOREIGN_KEY_CHECKS=0;
 
+DROP TABLE IF EXISTS `act_id_group`;
+DROP TABLE IF EXISTS `act_id_info`;
+DROP TABLE IF EXISTS `act_id_membership`;
+DROP TABLE IF EXISTS `act_id_user`;
+
 -- ----------------------------
 -- Table structure for act_re_model
 -- ----------------------------
