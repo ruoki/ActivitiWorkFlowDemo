@@ -19,6 +19,7 @@ DROP TABLE IF EXISTS `act_id_group`;
 DROP TABLE IF EXISTS `act_id_info`;
 DROP TABLE IF EXISTS `act_id_membership`;
 DROP TABLE IF EXISTS `act_id_user`;
+DROP TABLE IF EXISTS `act_cus_basevo`;
 
 -- ----------------------------
 -- Table structure for act_re_model
@@ -529,22 +530,6 @@ CREATE TABLE `act_procdef_info` (
   CONSTRAINT `ACT_FK_INFO_PROCDEF` FOREIGN KEY (`PROC_DEF_ID_`) REFERENCES `act_re_procdef` (`ID_`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
-
-
--- ----------------------------
--- Table structure for act_cus_basevo
--- ----------------------------
-DROP TABLE IF EXISTS `act_cus_basevo`;
-CREATE TABLE `act_cus_basevo` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` varchar(32) NOT NULL DEFAULT '' COMMENT '用户id',
-  `process_instance_id` varchar(32) DEFAULT NULL COMMENT '流程实例id',
-  `business_key` varchar(255) DEFAULT NULL COMMENT '业务key(流程id+业务id)',
-  `reason` varchar(255) DEFAULT NULL COMMENT '申请原因',
-  `apply_time` datetime DEFAULT NULL COMMENT '申请时间',
-  `status` varchar(32) DEFAULT NULL COMMENT '申请状态',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8 COMMENT='流程业务关联表';
 
 -- ----------------------------
 -- Table structure for act_cus_user_task

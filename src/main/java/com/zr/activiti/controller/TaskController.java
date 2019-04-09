@@ -1,5 +1,6 @@
 package com.zr.activiti.controller;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -27,7 +28,6 @@ import com.zr.activiti.entity.CommentVO;
 import com.zr.activiti.entity.CusUserTask;
 import com.zr.activiti.entity.Page;
 import com.zr.activiti.entity.User;
-import com.zr.activiti.service.BaseVOService;
 import com.zr.activiti.service.CusTaskService;
 import com.zr.activiti.service.CusUserTaskService;
 import com.zr.activiti.service.ProcessService;
@@ -36,8 +36,6 @@ import com.zr.activiti.utils.JsonUtil;
 import com.zr.activiti.utils.LocalSessions;
 import com.zr.activiti.utils.ProcessDefinitionCache;
 import com.zr.activiti.utils.StringUtil;
-
-import java.lang.reflect.Type;
 
 /**
  * 任务节点相关web类
@@ -50,8 +48,6 @@ public class TaskController {
 	CusTaskService cusTaskService;
 	@Resource
 	ProcessService processService;
-	@Resource
-	BaseVOService baseVOService;
 	@Resource
 	private RequirementService requirementService;
 	@Resource
@@ -740,7 +736,6 @@ public class TaskController {
 //					this.cusUserTaskService.updateNextCusUserTaskInfo(baseVO, condition,isChangeData,requirementConfirmService);
 //					break;
 		}
-//		cusUserTaskService.updateNextCusUserTaskInfo(baseVO, condition,isChangeData);
 	}
 	
 	

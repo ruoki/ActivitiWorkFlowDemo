@@ -35,7 +35,6 @@ import com.zr.activiti.entity.BaseVO;
 import com.zr.activiti.entity.CommentVO;
 import com.zr.activiti.entity.CusUserTask;
 import com.zr.activiti.entity.User;
-import com.zr.activiti.service.BaseVOService;
 import com.zr.activiti.service.CusTaskService;
 import com.zr.activiti.service.CusUserTaskService;
 import com.zr.activiti.service.ProcessService;
@@ -66,8 +65,6 @@ public class ProcessController {
 	ProcessService processService;
 	@Resource
 	CusTaskService cusTaskService;
-	@Resource
-	BaseVOService baseVOService;
 	@Resource
 	protected CusUserTaskService userTaskService;
 
@@ -218,9 +215,9 @@ public class ProcessController {
 
 		final String businesskey = baseVO.getBusinessKey();// 设置业务key
 		final String procDefKey = businesskey.contains(":") ? businesskey.split(":")[0] : "";
-		List<BaseVO> baseVOs = baseVOService.getByBusinessKey(businesskey);
+		List<HistoricProcessInstance> processInstanceList = processService.getPIsByBusinessKey(businesskey);
 		ProcessInstance instance = null;
-		if (baseVOs.size() > 0) {
+		if (processInstanceList.size() > 0) {
 			result.put("msg", "同一个流程只能申请一次");
 			result.put("type", "onetime");
 		} else {
@@ -233,7 +230,6 @@ public class ProcessController {
 				instance = processService.startWorkFlow(baseVO, variables);
 
 				baseVO.setProcessInstanceId(instance.getId());
-				baseVOService.save(baseVO);
 
 				List<User> nextAssignes = cusTaskService.excuteFirstTask(instance.getId(),params, baseVO, variables);
 
@@ -266,6 +262,15 @@ public class ProcessController {
 			break;
 		}
 	}
+	
+
+	/**
+	 * 启动失败则删除流程实例相关信息
+	 * @param result
+	 * @param baseVO
+	 * @param businesskey
+	 * @param instance
+	 */
 	private void deleteProcessInFo(Map<String, Object> result, BaseVO baseVO, final String businesskey,ProcessInstance instance,HttpServletRequest request) {
 		if (instance != null) {
 			try {
@@ -508,7 +513,6 @@ public class ProcessController {
 
 		if(cascade) {//级联删除才删除业务信息，否则视为结束流程
 			this.userTaskService.deleteByProcDefKey(businessKey);
-			this.baseVOService.deleteByBusinessKey(businessKey);
 			deleteContentInfo(contentInfoId, businessKey);
 			if(StringUtil.isNotEmpty(processInstanceId)) {
 				deleteProcessPicture(processInstanceId,request);

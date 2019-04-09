@@ -113,8 +113,11 @@ public class ProcessService{
 
 	/**
 	 * 启动流程
+	 * @param baseVO
+	 * @param variables
+	 * @return
+	 * @throws Exception
 	 */
-	
 	public ProcessInstance startWorkFlow(BaseVO baseVO, Map<String, Object> variables) throws Exception {
 
 		final String businesskey = baseVO.getBusinessKey();// 设置业务key
@@ -137,7 +140,6 @@ public class ProcessService{
 	 * @param processInstanceId
 	 * @return
 	 */
-	
 	public ProcessInstance getProcessInstanceById(String processInstanceId) {
 		ProcessInstance processInstance = runtimeService.createProcessInstanceQuery()
 				.processInstanceId(processInstanceId).singleResult();
@@ -157,6 +159,19 @@ public class ProcessService{
 		List<HistoricProcessInstance> list = historQuery.list();
 		return list;
 	}
+	
+	/**
+	 * 根据businesskey查询流程实例
+	 * @param businesskey 业务key
+	 * @return
+	 */
+	public List<HistoricProcessInstance> getPIsByBusinessKey(String businesskey){
+		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery().processInstanceBusinessKey(businesskey).orderByProcessInstanceStartTime().desc();
+		if (historQuery == null)
+			return new ArrayList<>();
+		List<HistoricProcessInstance> list = historQuery.list();
+		return list;
+	}
 
 	/**
 	 * 查询我的流程实例（包括结束的和正在运行的）<br/>
@@ -164,7 +179,6 @@ public class ProcessService{
 	 * @return
 	 * @throws Exception
 	 */
-	
 	public List<BaseVO> findMyProcessInstances(Page<BaseVO> page, String userCode) throws Exception {
 
 		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
@@ -186,7 +200,6 @@ public class ProcessService{
 	 * 
 	 * @return
 	 */
-	
 	public List<BaseVO> findFinishedProcessInstances(Page<BaseVO> page, String userCode, boolean isInvolved) {
 		HistoricProcessInstanceQuery historQuery = null;
 		if (isInvolved) {
@@ -298,7 +311,6 @@ public class ProcessService{
 	 * @param processInstanceId
 	 * @return
 	 */
-	
 	public HistoricProcessInstance getHisProcessInstanceByInstanceId(String processInstanceId) {
 		return historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstanceId).orderByProcessInstanceEndTime().desc().singleResult();
 	}
@@ -311,7 +323,6 @@ public class ProcessService{
 	/**
 	 * 删除流程实例，可级联删除
 	 */
-	
 	public void deleteProcessInstance(String processInstanceId, String deleteReason, boolean cascade) throws Exception {
 		boolean isEnd = isProcessEnd(processInstanceId);
 		System.out.println("ProcessService deleteProcessInstance processInstanceId:" + processInstanceId
@@ -330,7 +341,6 @@ public class ProcessService{
 	 * @param processInstanceId
 	 * @return
 	 */
-	
 	public boolean isProcessEnd(String processInstanceId) {
 		return historyService.createHistoricProcessInstanceQuery().finished()
 				.processInstanceId(processInstanceId).count() > 0;
@@ -383,7 +393,6 @@ public class ProcessService{
 	 * @param processInstanceId
 	 * @return
 	 */
-	
 	public BaseVO getBaseVOFromHistoryVariable(HistoricTaskInstance historicTaskInstance,
 			HistoricProcessInstance historicProcessInstance, String processInstanceId) {
 
@@ -464,7 +473,6 @@ public class ProcessService{
 	 * @return
 	 * @throws Exception
 	 */
-	
 	public InputStream getDiagramByProDefinitionId_noTrace(String resourceType, String deploymentId) throws Exception {
 		ProcessDefinition processDefinition = findProcessDefinitionByDeploymentId(deploymentId);
 		String resourceName = "";
@@ -555,22 +563,6 @@ public class ProcessService{
 	
 
 	/**
-	 * 运行中的流程 <br/>
-	 * 查询ACT_RU_EXECUTION res、ACT_RE_PROCDEF p表on res.PROC_DEF_ID_ = p.ID_
-	 */
-	
-	public List<BaseVO> listRuningProcess(String userCode, Page<BaseVO> page) throws Exception {
-
-//		ProcessInstanceQuery processInstanceQuery = runtimeService.createProcessInstanceQuery();
-//		int[] pageParams = page.getPageParams(processInstanceQuery.list().size());
-//		List<ProcessInstance> list = processInstanceQuery.orderByProcessInstanceId().desc().listPage(pageParams[0],
-//				pageParams[1]);
-		List<BaseVO> baseVoList = null;
-//		List<BaseVO> baseVoList = castProcessToBaseVo(userCode, list);
-		return baseVoList;
-	}
-
-	/**
 	 * 激活流程实例
 	 */
 	public void activateProcessInstance(String processInstanceId) {
@@ -600,49 +592,4 @@ public class ProcessService{
         //根据流程定义的key暂停一个流程定义,并且级联挂起该流程定义下的流程实例,这样流程无法运行
         repositoryService.suspendProcessDefinitionByKey(processDefinitionKey, true, null);
 	}
-
-//	private List<BaseVO> castProcessToBaseVo(String userCode, List<ProcessInstance> list) {
-//		List<BaseVO> processList = new ArrayList<>();
-//		for (ProcessInstance pd : list) {
-//			String processInstanceId = pd.getId();
-//			BaseVO base = getBaseVOFromRunTask(processInstanceId);
-//			if (userCode.equals(base.getCreateId())) {
-//				base.setProcessInstance(pd);
-//				base.setDeploymentId(pd.getDeploymentId());
-//				processList.add(base);
-//			}
-//		}
-//		return processList;
-//	}
-//
-//	private BaseVO getBaseVOFromRunTask(String processInstanceId) {
-//		BaseVO base = (BaseVO) getBaseVOFromRu_Variable(processInstanceId);
-//		
-//		Task task = null;
-//		String candidateUserIds = "";
-//		
-//		List<Task> taskList = cusTaskService.findRunTaskByProcInstanceId(processInstanceId);
-//		if (taskList != null && taskList.size() > 0) {
-//			task = taskList.get(0);
-//			candidateUserIds = cusTaskService.getAssignee(taskList);
-//		}
-//		System.out.println("ProcessServiceImpl getBaseVOFromRunTask candidateUserIds:" + candidateUserIds);
-//		if(base != null) {
-//			if (task != null) {
-//				base.setTask(task);
-//				base.setTaskDefinitionKey(task.getTaskDefinitionKey());
-//				base.setToHandleTaskName(task.getName());
-//				ProcessDefinitionCache.setRepositoryService(this.repositoryService);
-//				ProcessDefinition process = ProcessDefinitionCache.get(task.getProcessDefinitionId());
-//				if(process != null) {
-//					base.setDescription(process.getDescription());
-//					base.setProcessDefinition(process);
-//				}
-//			}
-//			base.setAssign(candidateUserIds);
-//			base.setProcessInstanceId(processInstanceId);
-//		}
-//		return base;
-//	}
-
 }
