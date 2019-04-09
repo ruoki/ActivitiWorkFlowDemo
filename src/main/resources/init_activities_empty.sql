@@ -4,40 +4,16 @@ Navicat MySQL Data Transfer
 Source Server         : zrq
 Source Server Version : 50721
 Source Host           : localhost:3306
-Source Database       : activitidb
+Source Database       : vue_yilion
 
 Target Server Type    : MYSQL
 Target Server Version : 50721
 File Encoding         : 65001
 
-Date: 2018-11-29 16:37:08
+Date: 2019-04-09 10:22:02
 */
 
 SET FOREIGN_KEY_CHECKS=0;
-
-DROP TABLE IF EXISTS `act_id_group`;
-DROP TABLE IF EXISTS `act_id_info`;
-DROP TABLE IF EXISTS `act_id_membership`;
-DROP TABLE IF EXISTS `act_id_user`;
-
--- ----------------------------
--- Table structure for act_ge_property
--- ----------------------------
-DROP TABLE IF EXISTS `act_ge_property`;
-CREATE TABLE `act_ge_property` (
-  `NAME_` varchar(64) COLLATE utf8_bin NOT NULL,
-  `VALUE_` varchar(300) COLLATE utf8_bin DEFAULT NULL,
-  `REV_` int(11) DEFAULT NULL,
-  PRIMARY KEY (`NAME_`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-
-
--- ----------------------------
--- Records of act_ge_property
--- ----------------------------
-INSERT INTO `act_ge_property` VALUES ('next.dbid', '1', 1);
-INSERT INTO `act_ge_property` VALUES ('schema.history', 'create(5.22.0.0)', '1');
-INSERT INTO `act_ge_property` VALUES ('schema.version', '5.22.0.0', '1');
 
 -- ----------------------------
 -- Table structure for act_re_model
@@ -66,6 +42,24 @@ CREATE TABLE `act_re_model` (
   CONSTRAINT `ACT_FK_MODEL_SOURCE_EXTRA` FOREIGN KEY (`EDITOR_SOURCE_EXTRA_VALUE_ID_`) REFERENCES `act_ge_bytearray` (`ID_`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
+-- ----------------------------
+-- Table structure for act_ge_property
+-- ----------------------------
+DROP TABLE IF EXISTS `act_ge_property`;
+CREATE TABLE `act_ge_property` (
+  `NAME_` varchar(64) COLLATE utf8_bin NOT NULL,
+  `VALUE_` varchar(300) COLLATE utf8_bin DEFAULT NULL,
+  `REV_` int(11) DEFAULT NULL,
+  PRIMARY KEY (`NAME_`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- ----------------------------
+-- Records of act_ge_property
+-- ----------------------------
+INSERT INTO `act_ge_property` VALUES ('next.dbid', '67501', '28');
+INSERT INTO `act_ge_property` VALUES ('schema.history', 'create(5.22.0.0)', '1');
+INSERT INTO `act_ge_property` VALUES ('schema.version', '5.22.0.0', '1');
+
 
 -- ----------------------------
 -- Table structure for act_ge_bytearray
@@ -83,9 +77,7 @@ CREATE TABLE `act_ge_bytearray` (
   CONSTRAINT `ACT_FK_BYTEARR_DEPL` FOREIGN KEY (`DEPLOYMENT_ID_`) REFERENCES `act_re_deployment` (`ID_`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
--- ----------------------------
--- Records of act_ge_bytearray
--- ----------------------------
+
 -- ----------------------------
 -- Table structure for act_re_deployment
 -- ----------------------------
@@ -533,6 +525,7 @@ CREATE TABLE `act_procdef_info` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 
+
 -- ----------------------------
 -- Table structure for act_cus_basevo
 -- ----------------------------
@@ -546,7 +539,7 @@ CREATE TABLE `act_cus_basevo` (
   `apply_time` datetime DEFAULT NULL COMMENT '申请时间',
   `status` varchar(32) DEFAULT NULL COMMENT '申请状态',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='流程业务关联表';
+) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8 COMMENT='流程业务关联表';
 
 -- ----------------------------
 -- Table structure for act_cus_user_task
@@ -558,10 +551,11 @@ CREATE TABLE `act_cus_user_task` (
   `PROC_DEF_NAME` varchar(255) DEFAULT NULL COMMENT '流程名',
   `TASK_DEF_KEY` varchar(255) DEFAULT NULL COMMENT '节点id',
   `TASK_NAME` varchar(255) DEFAULT NULL COMMENT '节点名',
+  `ACTIVITY_TYPE` varchar(255) DEFAULT '' COMMENT '当前Activiti节点类型：N-普通用户任务；M-多实例节点',
   `TASK_TYPE` varchar(255) DEFAULT NULL COMMENT '节点的处理人员类型：assignee(人员)、candidateUser(候选人)、candidateGroup(候选组)',
   `CANDIDATE_NAME` varchar(255) DEFAULT NULL COMMENT '执行人名',
   `CANDIDATE_IDS` varchar(255) DEFAULT NULL COMMENT '执行人id',
   `GROUP_ID` varchar(255) DEFAULT NULL COMMENT '组id',
   `GROUP_NAME` varchar(255) DEFAULT NULL COMMENT '组名称',
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB AUTO_INCREMENT=109 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=465 DEFAULT CHARSET=utf8;
