@@ -28,7 +28,7 @@
         <!-- 数据源 -->
         <property name="dataSource" ref="jdbcDataSource"></property>
         <!-- 别名 -->
-        <property name="typeAliasesPackage" value="com.zr.activiti.entity"></property>
+        <property name="typeAliasesPackage" value="com.zr.workflow.activiti.entity"></property>
 		
         <!-- sql映射文件路径 -->
 		<!-- 扫描mappers目录以及子目录下的所有xml文件 -->
@@ -39,8 +39,8 @@
     <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
         <!--指定会话工厂，如果当前上下文中只定义了一个则该属性可省去 -->
         <!-- <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property> -->
-        <!-- 指定要自动扫描接口的基础包，实现接口 -->
-	     <property name="basePackage" value="com.zr.activiti.dao" />
+        <!-- basePackage 属性是让你为映射器接口文件设置基本的包路径。 你可以使用分号或逗号 作为分隔符设置多于一个的包路径 -->
+	     <property name="basePackage" value="com.zr.workflow.activiti.dao,com.zr.workflow.springdemo.dao" />
     </bean>
     
     <!--5 声明式事务管理 -->
@@ -53,6 +53,6 @@
     <tx:annotation-driven transaction-manager="transactionManager"/>
 
 	<!-- 自动扫描包，实现支持注解的IOC在Junit测试Mybatis Service时放开 -->
-	<!-- <context:component-scan base-package="com.zr.activiti"></context:component-scan> -->
+	<!-- <context:component-scan base-package="com.zr.workflow.activiti"></context:component-scan> -->
 	
 </beans>

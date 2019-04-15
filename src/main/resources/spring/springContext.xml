@@ -12,7 +12,7 @@
         http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd">
 
 	<!-- 自动扫描包，实现支持注解的IOC -->
-	<context:component-scan base-package="com.zr.activiti">
+	<context:component-scan base-package="com.zr.workflow">
 		<!-- <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller" /> -->
 	</context:component-scan>
     <!-- 支持mvc注解驱动 -->
@@ -21,7 +21,7 @@
 	<!-- 静态资源文件，不会被Spring MVC拦截 -->
 	<mvc:default-servlet-handler />
 	<mvc:resources location="/resources/" mapping="/resources/**" />
-	<bean id="springContextHelper" class="com.zr.activiti.utils.ApplicationContextHandler"></bean>
+	<bean id="springContextHelper" class="com.zr.workflow.activiti.utils.ApplicationContextHandler"></bean>
 	
 	<!-- 视图页面配置 -->
 	<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">

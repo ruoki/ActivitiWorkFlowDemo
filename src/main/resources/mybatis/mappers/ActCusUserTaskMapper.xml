@@ -2,8 +2,8 @@
 <!DOCTYPE mapper
  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zr.activiti.dao.CusUserTaskDao">
-	<resultMap type="com.zr.activiti.entity.CusUserTask" id="requireResult">
+<mapper namespace="com.zr.workflow.activiti.dao.CusUserTaskDao">
+	<resultMap type="com.zr.workflow.activiti.entity.CusUserTask" id="requireResult">
 		<result property="id" column="id" />
 		<result property="procDefKey" column="PROC_DEF_KEY" />
 		<result property="procDefName" column="PROC_DEF_NAME" />
@@ -43,13 +43,13 @@
 		delete from act_cus_user_task
 	</select>
 	
-	<insert id="add" useGeneratedKeys="true" keyProperty="id" parameterType="com.zr.activiti.entity.CusUserTask">
+	<insert id="add" useGeneratedKeys="true" keyProperty="id" parameterType="com.zr.workflow.activiti.entity.CusUserTask">
 	  insert into act_cus_user_task 
 	  (id,PROC_DEF_KEY,PROC_DEF_NAME,TASK_DEF_KEY,TASK_NAME,ACTIVITY_TYPE,TASK_TYPE,CANDIDATE_NAME,CANDIDATE_IDS,GROUP_ID,GROUP_NAME)
 	  values 
 	  (#{id},#{procDefKey},#{procDefName},#{taskDefKey},#{taskName},#{activityType},#{taskType},#{candidate_name},#{candidate_ids},#{group_id},#{group_name})
 	</insert>
-	<update id="update" parameterType="com.zr.activiti.entity.CusUserTask">
+	<update id="update" parameterType="com.zr.workflow.activiti.entity.CusUserTask">
 		update act_cus_user_task 
 		<set >
 	      <if test="procDefKey != null" >

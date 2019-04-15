@@ -58,7 +58,7 @@
 	<!-- 配置编码过滤 -->
    	<filter>
 	    <filter-name>EncoidingFilter</filter-name>
-	    <filter-class>com.zr.activiti.utils.EncoidingFilter</filter-class>
+	    <filter-class>com.zr.workflow.utils.EncoidingFilter</filter-class>
 	    
 	    <init-param>
 	       <param-name>Encoding</param-name>

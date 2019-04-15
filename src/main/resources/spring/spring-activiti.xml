@@ -57,17 +57,18 @@
         <!-- 自定义用户管理 -->
         <property name="customSessionFactories">
         	<list>
-        		<bean class="com.zr.activiti.utils.CustomUserEntityManagerFactory">
+        		<bean class="com.zr.workflow.activiti.utils.CustomUserEntityManagerFactory">
         			<property name="customUserEntityManager" ref="customUserEntityManager"></property>
         		</bean>
-        		<bean class="com.zr.activiti.utils.CustomGroupEntityManagerFactory">
+        		<bean class="com.zr.workflow.activiti.utils.CustomGroupEntityManagerFactory">
         			<property name="customGroupEntityManager" ref="customGroupEntityManager"></property>
         		</bean>
         	</list>
         </property>
   	</bean>
-  	<bean id="customUserEntityManager" class="com.zr.activiti.utils.CustomUserEntityManager"></bean>
-    <bean id="customGroupEntityManager" class="com.zr.activiti.utils.CustomGroupEntityManager"></bean>
+    <!-- 注册自定义用户管理类 -->
+  	<bean id="customUserEntityManager" class="com.zr.workflow.activiti.utils.CustomUserEntityManager"></bean>
+    <bean id="customGroupEntityManager" class="com.zr.workflow.activiti.utils.CustomGroupEntityManager"></bean>
     
     
     <!-- 加载activiti引擎processEngine --> 

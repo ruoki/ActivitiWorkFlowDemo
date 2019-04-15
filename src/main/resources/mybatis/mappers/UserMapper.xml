@@ -3,7 +3,7 @@
  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--命名空间应该是对应接口的包名+接口名 -->
-<mapper namespace="com.zr.activiti.dao.UserDAO">
+<mapper namespace="com.zr.workflow.dao.UserDAO">
 	<resultMap type="User" id="requireResult">
 		<result property="userId" column="id"/>
 		<result property="userCode" column="code"/>
