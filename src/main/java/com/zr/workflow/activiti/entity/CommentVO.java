@@ -5,7 +5,6 @@ import java.util.Date;
 
 import com.zr.workflow.activiti.util.DateFormatUtil;
 
-
 public class CommentVO implements Serializable {
 	private static final long serialVersionUID = 3549695946267239515L;
 

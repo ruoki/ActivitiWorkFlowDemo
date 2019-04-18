@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.history.HistoricTaskInstance;
-import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.runtime.ProcessInstance;
 import org.activiti.engine.task.Task;
 
@@ -38,7 +37,7 @@ public class BaseVO implements Serializable {
 	private String createId;// 创建人
 	private String createName;
 	private String createTime;// 流程的创建时间
-	private String endTime;// 流程的结束时间
+	private String processEndTime;// 流程的结束时间
 	private String reason;
 	private String owner;// 拥有者
 	// 申请的标题
@@ -60,7 +59,7 @@ public class BaseVO implements Serializable {
 	private String assignName;// 当前节点的受理人
 	private String description;// 描述
 	private String businessKey;// 对应业务的id
-	private String startTime;// 任务的开始时间
+	private String taskStartTime;// 任务的开始时间
 	private String operateTime;// 任务的结束时间(处理时间)
 	private String claimTime;// 任务的签收时间
 	private boolean isEnd;// 流程是否结束
@@ -127,16 +126,16 @@ public class BaseVO implements Serializable {
 		this.createTime = createTime;
 	}
 
-	public String getEndTime() {
-		if (this.endTime == null) {
+	public String getProcessEndTime() {
+		if (this.processEndTime == null) {
 			Date endDate = (null == historicProcessInstance) ? null : historicProcessInstance.getEndTime();
-			endTime = endDate == null ? "" : DateFormatUtil.format(endDate);
+			processEndTime = endDate == null ? "" : DateFormatUtil.format(endDate);
 		}
-		return endTime;
+		return processEndTime;
 	}
 
-	public void setEndTime(String endTime) {
-		this.endTime = endTime;
+	public void setProcessEndTime(String processEndTime) {
+		this.processEndTime = processEndTime;
 	}
 
 	public String getTitle() {
@@ -156,9 +155,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getDeploymentId() {
-		if (this.deploymentId == null) {
-			this.deploymentId = (null == processInstance) ? "" : processInstance.getDeploymentId();
-		}
 		return deploymentId;
 	}
 
@@ -167,15 +163,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getProcessInstanceId() {
-		if (this.processInstanceId == null || "".equals(this.processInstanceId)) {
-			if (historicTaskInstance != null) {
-				this.processInstanceId = historicTaskInstance.getProcessInstanceId();
-			} else if (processInstance != null) {
-				this.processInstanceId = processInstance.getId();
-			} else {
-				this.processInstanceId = (null == historicProcessInstance) ? "" : historicProcessInstance.getId();
-			}
-		}
 		return processInstanceId;
 	}
 
@@ -195,9 +182,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getHandledTaskId() {
-		if (this.handledTaskId == null) {
-			this.handledTaskId = (null == historicTaskInstance) ? "" : historicTaskInstance.getId();
-		}
 		return handledTaskId;
 	}
 
@@ -206,10 +190,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getHandledTaskDefinitionKey() {
-		if (this.handledTaskDefinitionKey == null) {
-			this.handledTaskDefinitionKey = (null == historicTaskInstance) ? ""
-					: historicTaskInstance.getTaskDefinitionKey();
-		}
 		return handledTaskDefinitionKey;
 	}
 
@@ -218,9 +198,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getHandledTaskName() {
-		if (this.handledTaskName == null) {
-			this.handledTaskName = (null == historicTaskInstance) ? "" : historicTaskInstance.getName();
-		}
 		return handledTaskName;
 	}
 
@@ -229,9 +206,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getAssignedId() {
-		if (this.assignedId == null) {
-			this.assignedId = (null == historicTaskInstance) ? "" : historicTaskInstance.getAssignee();
-		}
 		return assignedId;
 	}
 
@@ -282,9 +256,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getAssign() {
-		if (this.assign == null) {
-			this.assign = (null == task) ? "" : task.getAssignee();
-		}
 		return assign;
 	}
 
@@ -316,33 +287,27 @@ public class BaseVO implements Serializable {
 		this.businessKey = businessKey;
 	}
 
-	public String getStartTime() {
-		if (this.startTime == null) {
-			Date startDate = null;
-			if (historicTaskInstance != null) {
-				startDate = historicTaskInstance.getStartTime();
-			} else {
-				startDate = (null == historicProcessInstance) ? null : historicProcessInstance.getStartTime();
-			}
-			startTime = startDate == null ? "" : DateFormatUtil.format(startDate);
-		}
-		return startTime;
+	public String getTaskStartTime() {
+		return taskStartTime;
 	}
 
-	public void setStartTime(String startTime) {
-		this.startTime = startTime;
+	public void setTaskStartTime(Date startDate) {
+		this.taskStartTime = startDate == null ? "" : DateFormatUtil.format(startDate);
 	}
 
 	public String getOperateTime() {
 		if (this.operateTime == null) {
 			Date operateDate = (null == historicTaskInstance) ? null : historicTaskInstance.getEndTime();
+			if(null == operateDate) {
+				operateDate = (null == historicProcessInstance) ? null : historicProcessInstance.getEndTime();
+			}
 			operateTime = operateDate == null ? "" : DateFormatUtil.format(operateDate);
 		}
 		return operateTime;
 	}
 
 	public void setOperateTime(String operateTime) {
-		this.operateTime = endTime;
+		this.operateTime = operateTime;
 	}
 
 	public String getClaimTime() {
@@ -375,15 +340,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getProcessDefinitionId() {
-		if (processDefinitionId == null) {
-			if (processInstance != null) {
-				this.processDefinitionId = processInstance.getProcessDefinitionId();
-			} else {
-				this.processDefinitionId = (null == historicProcessInstance) ? ""
-						: historicProcessInstance.getProcessDefinitionId();
-
-			}
-		}
 		return processDefinitionId;
 	}
 
@@ -392,9 +348,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getProcessDefinitionName() {
-		if (processDefinitionName == null) {
-			this.processDefinitionName = (null == processDefinition) ? "" : processDefinition.getName();
-		}
 		return processDefinitionName;
 	}
 
@@ -403,9 +356,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getProcessDefinitionKey() {
-		if (processDefinitionKey == null) {
-			this.processDefinitionKey = (null == processDefinition) ? "" : processDefinition.getKey();
-		}
 		return processDefinitionKey;
 	}
 
@@ -422,9 +372,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public int getVersion() {
-		if(version <= 0) {
-			version = (null == processDefinition) ? 0 : processDefinition.getVersion();
-		}
 		return version;
 	}
 
@@ -476,9 +423,6 @@ public class BaseVO implements Serializable {
 	// 历史任务
 	private HistoricTaskInstance historicTaskInstance;
 
-	// 流程定义
-	private ProcessDefinition processDefinition;
-
 
 	public void setTask(Task task) {
 		this.task = task;
@@ -492,10 +436,6 @@ public class BaseVO implements Serializable {
 		this.historicProcessInstance = historicProcessInstance;
 	}
 
-	public void setProcessDefinition(ProcessDefinition processDefinition) {
-		this.processDefinition = processDefinition;
-	}
-
 	public void setHistoricTaskInstance(HistoricTaskInstance historicTaskInstance) {
 		this.historicTaskInstance = historicTaskInstance;
 	}
@@ -503,14 +443,14 @@ public class BaseVO implements Serializable {
 	@Override
 	public String toString() {
 		return "BaseVO [id=" + id + ", createId=" + createId + ", createName=" + createName + ", createTime="
-				+ createTime + ", endTime=" + endTime + ", reason=" + reason + ", owner=" + owner + ", title=" + title
+				+ createTime + ", processEndTime=" + processEndTime + ", reason=" + reason + ", owner=" + owner + ", title=" + title
 				+ ", businessType=" + businessType + ", deploymentId=" + deploymentId + ", processInstanceId="
 				+ processInstanceId + ", deleteReason=" + deleteReason + ", handledTaskId=" + handledTaskId
 				+ ", handledTaskDefinitionKey=" + handledTaskDefinitionKey + ", handledTaskName=" + handledTaskName
 				+ ", assignedId=" + assignedId + ", assignedName=" + assignedName + ", toHandleTaskId=" + toHandleTaskId
 				+ ", taskDefinitionKey=" + taskDefinitionKey + ", toHandleTaskName=" + toHandleTaskName + ", assign="
 				+ assign + ", assignName=" + assignName + ", description=" + description + ", businessKey="
-				+ businessKey + ", startTime=" + startTime + ", operateTime=" + operateTime + ", claimTime=" + claimTime
+				+ businessKey + ", taskStartTime=" + taskStartTime + ", operateTime=" + operateTime + ", claimTime=" + claimTime
 				+ ", isEnd=" + isEnd + ", suspended=" + suspended + ", processDefinitionId=" + processDefinitionId
 				+ ", processDefinitionName=" + processDefinitionName + ", processDefinitionKey=" + processDefinitionKey
 				+ ", processStatus=" + processStatus + ", version=" + version + ", contentInfo=" + contentInfo

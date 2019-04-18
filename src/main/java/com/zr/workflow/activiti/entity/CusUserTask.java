@@ -3,7 +3,7 @@ package com.zr.workflow.activiti.entity;
 import java.io.Serializable;
 
 /**
- * 业务用户信息关联至工作流用户任务表-待完善
+ * 业务用户信息关联至工作流用户任务表
  * @author zhourq
  *
  */

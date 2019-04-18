@@ -21,7 +21,6 @@ import org.activiti.engine.impl.identity.Authentication;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.runtime.ProcessInstance;
-import org.activiti.engine.task.Task;
 import org.springframework.stereotype.Service;
 
 import com.zr.workflow.activiti.entity.BaseVO;
@@ -259,7 +258,6 @@ public class ProcessService{
 		List<BaseVO> processList = new ArrayList<>();
 		for (HistoricProcessInstance historicProcessInstance : list) {
 			String processInstanceId = historicProcessInstance.getId();
-
 			BaseVO base = null;
 			if (null != historicProcessInstance.getEndTime()) {
 				base = getBaseVOFromHistoryVariable(null, historicProcessInstance, processInstanceId);
@@ -268,39 +266,11 @@ public class ProcessService{
 			}else {
 				base = (BaseVO) getBaseVOFromRu_Variable(processInstanceId);
 			}
-
-			Task task = null;
-			String candidateUserIds = "";
-
-			List<Task> taskList = cusTaskService.findRunTaskByProcInstanceId(processInstanceId);
-			if (null != taskList && taskList.size() > 0) {
-				task = taskList.get(0);
-				candidateUserIds = cusTaskService.getCandidateIdsOfTask(taskList);
-			}
-			if(null != base) {
-				if(null != task) {
-					base.setTask(task);
-					base.setSuspended(task.isSuspended());
-					base.setTaskDefinitionKey(task.getTaskDefinitionKey());
-					base.setToHandleTaskName(task.getName());
-					base.setToHandleTaskId(task.getId());
-				}
-
-				ProcessDefinition process = findProcessDefinitionById(historicProcessInstance.getProcessDefinitionId());
-				if(null != process) {
-					base.setDescription(process.getDescription());
-					base.setProcessDefinition(process);
-					base.setProcessDefinitionKey(process.getKey());
-					base.setProcessDefinitionId(process.getId());
-					base.setProcessDefinitionName(process.getName());
-				}
-				base.setAssign(candidateUserIds);
-				base.setProcessInstanceId(processInstanceId);
-
-				base.setHistoricProcessInstance(historicProcessInstance);
-				base.setDeploymentId(historicProcessInstance.getDeploymentId());
+			HistoricTaskInstance historicTaskInstance = null;
+			historicTaskInstance = historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstanceId).orderByHistoricTaskInstanceEndTime().desc().list().get(0);
+			if (null == base) continue;
+			cusTaskService.setBaseVO(base,null,historicTaskInstance,null, historicProcessInstance);
 				processList.add(base);
-			}
 		}
 		return processList;
 	}

@@ -6,7 +6,6 @@ import org.apache.ibatis.annotations.Param;
 
 import com.zr.workflow.activiti.entity.CusUserTask;
 
-
 public interface CusUserTaskDao {
 
 	void add(CusUserTask userTask);

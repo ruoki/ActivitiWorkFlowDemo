@@ -428,7 +428,7 @@ public class ProcessController {
 		final JSONObject contentInfo = GFJsonUtil.get().getJSONObject(paramsJson,"contentInfo");
 		final JSONArray comments = GFJsonUtil.get().getJSONArray(paramsJson,"comments");
 
-		BaseVO baseVO = (BaseVO) this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
+		BaseVO baseVO = this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
 
 		if(null != contentInfo) {
 			baseVO.setContentInfo(contentInfo);

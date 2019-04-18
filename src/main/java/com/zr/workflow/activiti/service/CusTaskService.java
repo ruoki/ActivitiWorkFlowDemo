@@ -93,26 +93,8 @@ public class CusTaskService{
 			if(isSuspended)continue;//获取激活状态下的流程实例
 
 			BaseVO base = (BaseVO) processService.getBaseVOFromRu_Variable(processInstanceId);
-
-			List<Task> toDotaskList = findRunTaskByProcInstanceId(processInstanceId);// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
-
-			if (null != toDotaskList && toDotaskList.size() > 0) {
-				final String userIds = getCandidateIdsOfTask(toDotaskList);
-				base.setAssign(userIds);
-			}
-			base.setTask(task);
-			base.setTaskDefinitionKey(task.getTaskDefinitionKey());
-			base.setToHandleTaskName(task.getName());
-			base.setToHandleTaskId(task.getId());
-			base.setProcessInstance(processInstance);
-
-			ProcessDefinition process = processService.findProcessDefinitionById(processInstance.getProcessDefinitionId());
-			if(null != process) {
-				base.setProcessDefinition(process);
-				base.setProcessDefinitionKey(process.getKey());
-				base.setProcessDefinitionId(process.getId());
-				base.setProcessDefinitionName(process.getName());
-			}
+			if (null == base) continue;
+			setBaseVO(base, task,null,processInstance, null);
 			taskList.add(base);
 		}
 		return taskList;
@@ -188,7 +170,8 @@ public class CusTaskService{
 	 */
 	public List<String> handleTask(String taskId,String userId,String userName,StringBuilder handleFlag, String content, BaseVO baseVO,
 			Map<String, Object> variables) {
-		Task task = this.taskService.createTaskQuery().taskId(taskId).singleResult();
+		Task task = getTaskByTaskId(taskId);
+
 		//多实例节点未全部通过时不保存上一个节点信息
 		boolean notSetPreNodeInfo = (handleFlag != null && BaseVO.APPROVAL_SUCCESS.equals(handleFlag.toString()))
 				&&(!baseVO.getDescription().contains("已同意 ") && !baseVO.getDescription().contains(BaseVO.SUB_DESCRIPTION_PASS));
@@ -214,6 +197,11 @@ public class CusTaskService{
 		checkAutoCompleteTask(taskId, task, variables,baseVO.getDescription());
 		List<String> userList = getNextNodeAssigneInfos(baseVO.getProcessInstanceId());
 		return userList;
+	}
+
+	public Task getTaskByTaskId(String taskId) {
+		Task task = this.taskService.createTaskQuery().taskId(taskId).singleResult();
+		return task;
 	}
 
 	/**
@@ -320,9 +308,11 @@ public class CusTaskService{
 		String processInstanceId = task.getProcessInstanceId();
 		addComment(task.getId(), processInstanceId, content);
 	}
+
 	public void addComment(String taskId, String processInstanceId, String message) {
 		this.taskService.addComment(taskId, processInstanceId, message);
 	}
+
 	/**
 	 * 删除评论
 	 * @param taskId
@@ -331,6 +321,12 @@ public class CusTaskService{
 	public void deleteComment(String commentId){
 		this.taskService.deleteComment(commentId);
 	}
+
+	/**
+	 * 删除该流程的所有评论
+	 * @param taskId
+	 * @param processInstanceId
+	 */
 	public void deleteComments(String taskId,String processInstanceId){
 		this.taskService.deleteComments(taskId, processInstanceId);
 	}
@@ -387,7 +383,7 @@ public class CusTaskService{
 			HistoricProcessInstance historicProcessInstance = processService.getHisProcessInstanceByInstanceId(processInstanceId);
 
 			BaseVO base = null;
-			if (processService.isProcessEnd(processInstanceId)) {
+			if (null != historicProcessInstance.getEndTime()) {
 				base = processService.getBaseVOFromHistoryVariable(null, historicProcessInstance, processInstanceId);
 				base.setEnd(true);
 				base.setDeleteReason(historicProcessInstance.getDeleteReason());
@@ -395,40 +391,77 @@ public class CusTaskService{
 			}else {
 				base = processService.getBaseVOFromRu_Variable(processInstanceId);
 			}
-
-			Task task = null;
-			String groupIds = "";
-
-			List<Task> taskList = findRunTaskByProcInstanceId(processInstanceId);// 下一节点可能是多实例的会签点，可能有多个任务
-			if (null != taskList && taskList.size() > 0) {// 指定为空的情况下，表明该节点为会签节点，直接显示其候选组名
-				task = taskList.get(0);
-				groupIds = getCandidateIdsOfTask(taskList);
-			}
-
-			System.out.println("TaskServiceImpl findDoneTask groupIds:" + groupIds);
-			if(null != base) {
-				base.setAssign(groupIds);
-				base.setHistoricTaskInstance(historicTaskInstance);
-				base.setProcessInstanceId(processInstanceId);
-
-				ProcessDefinition process = processService.findProcessDefinitionById(historicTaskInstance.getProcessDefinitionId());
-				if(null != process) {
-					base.setProcessDefinition(process);
-					base.setProcessDefinitionKey(process.getKey());
-					base.setProcessDefinitionId(process.getId());
-					base.setProcessDefinitionName(process.getName());
-				}
-				if(null != task) {
-					base.setTask(task);
-					base.setSuspended(task.isSuspended());
-					base.setTaskDefinitionKey(task.getTaskDefinitionKey());
-					base.setToHandleTaskName(task.getName());
-					base.setToHandleTaskId(task.getId());
-				}
-				doneTaskList.add(base);
-			}
+			if (null == base) continue;
+			setBaseVO(base,null,historicTaskInstance,null, historicProcessInstance);
+			doneTaskList.add(base);
 		}
 		return doneTaskList;
+	}
+
+	/**
+	 * 填充实体类
+	 * @param base
+	 * @param task
+	 * @param historicTaskInstance
+	 * @param processInstance
+	 * @param historicProcessInstance
+	 */
+	public void setBaseVO(BaseVO base,Task task, HistoricTaskInstance historicTaskInstance,
+			ProcessInstance processInstance,HistoricProcessInstance historicProcessInstance) {
+
+		String proDefId = "";
+		String processInstanceId = "";
+		Date taskStartTime = null;
+		String owner = "";
+		if(null != task) {
+			proDefId = task.getProcessDefinitionId();
+			processInstanceId = task.getProcessInstanceId();
+			taskStartTime = task.getCreateTime();
+			owner = task.getOwner();
+		}else if(null != historicTaskInstance) {
+			proDefId = historicTaskInstance.getProcessDefinitionId();
+			processInstanceId = historicTaskInstance.getProcessInstanceId();
+			taskStartTime = historicTaskInstance.getCreateTime();
+			owner = historicTaskInstance.getOwner();
+		}else if(null != processInstance) {
+			proDefId = processInstance.getProcessDefinitionId();
+			processInstanceId = processInstance.getId();
+		}else if(null != historicProcessInstance) {
+			proDefId = historicProcessInstance.getProcessDefinitionId();
+			processInstanceId = historicProcessInstance.getId();
+		}
+		String userIds = "";
+		List<Task> toDotaskList = findRunTaskByProcInstanceId(processInstanceId);// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
+		if (null != toDotaskList && toDotaskList.size() > 0) {// 指定为空的情况下，表明该节点为会签节点，直接显示其候选组名
+			if(null == task) {
+				task = toDotaskList.get(0);
+			}
+			userIds = getCandidateIdsOfTask(toDotaskList);
+		}
+
+		base.setAssign(userIds);//未操作者
+		base.setProcessInstanceId(processInstanceId);
+		base.setHistoricTaskInstance(historicTaskInstance);
+		base.setHistoricProcessInstance(historicProcessInstance);
+		base.setProcessInstance(processInstance);
+		base.setOwner(owner);
+		if(null != task) {//下一节点的相关信息
+			if(null == taskStartTime)taskStartTime = task.getCreateTime();
+			base.setTask(task);
+			base.setTaskDefinitionKey(task.getTaskDefinitionKey());
+			base.setToHandleTaskName(task.getName());
+			base.setToHandleTaskId(task.getId());
+			base.setSuspended(task.isSuspended());
+		}
+		base.setTaskStartTime(taskStartTime);
+		ProcessDefinition process = processService.findProcessDefinitionById(proDefId);
+		if(null != process) {
+			base.setProcessDefinitionKey(process.getKey());
+			base.setProcessDefinitionId(process.getId());
+			base.setProcessDefinitionName(process.getName());
+			base.setVersion(process.getVersion());
+			base.setDeploymentId(process.getDeploymentId());
+		}
 	}
 
 	/**
@@ -557,34 +590,28 @@ public class CusTaskService{
 		System.out.println("getBaseVOByTaskId  queryId:" + queryId);
 		String processInstanceId = "";
 		BaseVO base = null;
-		Task task = this.taskService.createTaskQuery().taskId(queryId).singleResult();
+		Task task = getTaskByTaskId(queryId);
 		if (task == null) {
 			HistoricTaskInstance historicTaskInstance = null;
 			historicTaskInstance = historyService.createHistoricTaskInstanceQuery().taskId(queryId).singleResult();
 			if (historicTaskInstance != null) {
 				processInstanceId = historicTaskInstance.getProcessInstanceId();
+
 				base = processService.getBaseVOFromHistoryVariable(historicTaskInstance, null, processInstanceId);
-				if(base != null) {
-					base.setProcessInstanceId(processInstanceId);
-					base.setHistoricTaskInstance(historicTaskInstance);
-					base.setProcessDefinition(
-							processService.findProcessDefinitionById(historicTaskInstance.getProcessDefinitionId()));
-				}
+				if(base != null)
+					setBaseVO(base, null,historicTaskInstance,null, null);
 			} else {
 				HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
 						.processInstanceId(queryId).singleResult();
 				base = processService.getBaseVOFromHistoryVariable(null, historicProcessInstance, queryId);
 				if(base != null) {
-					base.setProcessInstanceId(queryId);
+					setBaseVO(base,null,null,null, historicProcessInstance);
 				}
 			}
 		} else {
-			processInstanceId = task.getProcessInstanceId();
-			base = (BaseVO) processService.getBaseVOFromRu_Variable(processInstanceId);
-			if(base != null) {
-				base.setProcessInstanceId(processInstanceId);
-				base.setTask(task);
-			}
+			base = (BaseVO) processService.getBaseVOFromRu_Variable(task.getProcessInstanceId());
+			if (null != base) 
+				setBaseVO(base,task,null,null, null);
 		}
 		return base;
 	}

@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.activiti.engine.ActivitiObjectNotFoundException;
 import org.activiti.engine.ActivitiTaskAlreadyClaimedException;
+import org.activiti.engine.task.Task;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -411,7 +412,7 @@ public class TaskController {
 			try {
 				String userId = GFJsonUtil.get().getProperty(json, "userId");
 				String userName = GFJsonUtil.get().getProperty(json, "userName");
-				condition = checkIsPassTask(isPassStr,userName, baseVO, variables, handleFlag);
+				condition = checkIsPassTask(isPassStr,taskId,userName, baseVO, variables, handleFlag);
 				if (StringUtil.isEmpty(condition)) {
 					condition = checkIsReapplyTask(reapplyStr,baseVO, variables, handleFlag);
 				}
@@ -420,7 +421,7 @@ public class TaskController {
 				}
 				final String businessKey = checkUpdateNextNodeAssignees(request, baseVO, variables, condition,isChangeDataStr);
 				List<String> nextAssignes = this.cusTaskService.handleTask(taskId,userId,userName,handleFlag, content, baseVO, variables);
-				deleteExtraContentInfo(baseVO.getContentInfo(), handleFlag, businessKey,request);
+				deleteExtraContentInfo(baseVO.getContentInfo().toString(), handleFlag, businessKey,request);
 				//多实例节点未全部通过时
 				boolean notSetPreNodeInfo = (handleFlag != null && BaseVO.APPROVAL_SUCCESS.equals(handleFlag.toString()))
 						&&(!baseVO.getDescription().contains("已同意 ") && !baseVO.getDescription().contains(BaseVO.SUB_DESCRIPTION_PASS));
@@ -474,7 +475,7 @@ public class TaskController {
 		final JSONObject contentInfo = GFJsonUtil.get().getJSONObject(params,"contentInfo");
 		final JSONArray comments = GFJsonUtil.get().getJSONArray(params,"comments");
 
-		BaseVO baseVO = (BaseVO) this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
+		BaseVO baseVO = this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
 		baseVO.setTaskDefinitionKey(currentTaskActivitiId);// 当前节点key
 		baseVO.setCandidate_ids(candidate_ids);// 下一节点执行人id
 		baseVO.setCandidate_names(candidate_names);// 下一节点执行人name
@@ -495,10 +496,10 @@ public class TaskController {
 	 * @param businessKey 业务key
 	 * @throws Exception
 	 */
-	private void deleteExtraContentInfo(final JSONObject contentInfo, StringBuilder handleFlag,
+	private void deleteExtraContentInfo(final String contentInfo, StringBuilder handleFlag,
 			final String businessKey,HttpServletRequest request) throws Exception {
 		if (BaseVO.CANCEL.equals(handleFlag.toString())) {
-			final String contentInfoId = contentInfo.getString("contentInfoId");
+			final String contentInfoId = GFJsonUtil.get().getProperty(contentInfo, "contentInfoId");
 			processControllder.deleteProcessInstance(null, businessKey, contentInfoId, "",true,request);
 		}
 	}
@@ -507,13 +508,14 @@ public class TaskController {
 	 * 是否审核通过
 	 * 
 	 * @param isPassStr
+	 * @param taskId
 	 * @param userName
 	 * @param baseVO
 	 * @param variables
 	 * @param handleFlag
 	 * @throws Exception 
 	 */
-	private String checkIsPassTask(String isPassStr,String userName, BaseVO baseVO,
+	private String checkIsPassTask(String isPassStr,String taskId,String userName, BaseVO baseVO,
 			Map<String, Object> variables, StringBuilder handleFlag) throws Exception {
 		String pass = "";
 
@@ -535,8 +537,8 @@ public class TaskController {
 				setAgreeMembers(variables, baseVO.getBusinessKey(),baseVO.getProcessInstanceId(),baseVO.getTaskDefinitionKey());
 				handleFlag.append(BaseVO.APPROVAL_SUCCESS);
 				baseVO.setProcessStatus(BaseVO.APPROVAL_SUCCESS);
-
-				int totalMembers = getMember("nrOfInstances", baseVO.getProcessInstanceId());
+				Task currentTask = this.cusTaskService.getTaskByTaskId(taskId);
+				int totalMembers = getMember("nrOfInstances", currentTask.getExecutionId());
 				int agreeMembers = getAgreeMember(baseVO);
 				if ((totalMembers == 0) || ((totalMembers - agreeMembers) == 1)) {
 					String nextActivitiId = ProcessDefinitionCache.get().getNextActivitiId(baseVO,"true");
