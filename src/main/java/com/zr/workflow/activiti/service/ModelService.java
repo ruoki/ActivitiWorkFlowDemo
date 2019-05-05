@@ -64,7 +64,6 @@ public class ModelService{
 
 	public Deployment deploy(String modelId)
 			throws IOException, JsonProcessingException, UnsupportedEncodingException {
-		System.out.println("ModelService deploy cache dir:"+System.getProperty("java.io.tmpdir"));
 		ImageIO.setUseCache(false);
 		//		ImageIO.setCacheDirectory(cacheDirectory);
 		Model modelData = repositoryService.getModel(modelId);

@@ -13,7 +13,6 @@ import javax.servlet.http.HttpServletRequest;
 import org.activiti.engine.ActivitiObjectNotFoundException;
 import org.activiti.engine.ActivitiTaskAlreadyClaimedException;
 import org.activiti.engine.task.Task;
-import org.apache.commons.lang.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -43,13 +42,13 @@ import com.zr.workflow.activiti.util.StringUtil;
 @RequestMapping("/task")
 public class TaskController {
 	@Resource
-	CusTaskService cusTaskService;
+	private CusTaskService cusTaskService;
 	@Resource
-	ProcessService processService;
+	private ProcessService processService;
 	@Resource
 	private CusUserTaskService cusUserTaskService;
 	@Resource
-	ProcessController processControllder;
+	private ProcessController processControllder;
 
 	/**
 	 * 我的请求
@@ -68,11 +67,11 @@ public class TaskController {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			Page<BaseVO> p = initPage(page, rows);
+			Page<BaseVO> p = this.processControllder.initPage(page, rows);
 			List<BaseVO> processList = this.processService.findMyProcessInstances(p, userId);
 
 			for (BaseVO base : processList) {
-				generateBaseVO(base, userId,userName);
+				this.processControllder.generateBaseVO(base, userId,userName);
 			}
 			System.out.println("我的请求：" + processList);
 			resultMap.put("type", "success");
@@ -126,12 +125,12 @@ public class TaskController {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			Page<BaseVO> p = initPage(page, rows);
+			Page<BaseVO> p = this.processControllder.initPage(page, rows);
 			// 查询我的任务列表
 			List<BaseVO> taskList = this.cusTaskService.findTodoTask(userId, p);
 
 			for (BaseVO base : taskList) {
-				generateBaseVO(base, userId,userName);
+				this.processControllder.generateBaseVO(base, userId,userName);
 			}
 			System.out.println("待办任务：" + taskList);
 			resultMap.put("type", "success");
@@ -169,10 +168,10 @@ public class TaskController {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			Page<BaseVO> p = initPage(page, rows);
+			Page<BaseVO> p = this.processControllder.initPage(page, rows);
 			List<BaseVO> taskList = this.cusTaskService.findDoneTask(userId, p);
 			for (BaseVO base : taskList) {
-				generateBaseVO(base, userId,userName);
+				this.processControllder.generateBaseVO(base, userId,userName);
 			}
 			System.out.println("已办任务 ：" + taskList);
 			resultMap.put("type", "success");
@@ -184,17 +183,6 @@ public class TaskController {
 		}
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
-	}
-
-	/**
-	 * 初始化分页
-	 * @param page
-	 * @param rows
-	 * @return
-	 */
-	private Page<BaseVO> initPage(Integer page, Integer rows) {
-		Page<BaseVO> p = (null == page || null == rows) ? null : new Page<BaseVO>(page, rows);
-		return p;
 	}
 
 	/**
@@ -214,10 +202,10 @@ public class TaskController {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			Page<BaseVO> p = initPage(page, rows);
+			Page<BaseVO> p = this.processControllder.initPage(page, rows);
 			List<BaseVO> taskList = this.processService.findFinishedProcessInstances(p, userId, true);
 			for (BaseVO base : taskList) {
-				generateBaseVO(base, userId,userName);
+				this.processControllder.generateBaseVO(base, userId,userName);
 			}
 
 			System.out.println("办结任务：" + taskList);
@@ -233,114 +221,12 @@ public class TaskController {
 		return resultJson;
 	}
 
-	/**
-	 * 补充BaseVO数据，评论列表中执行人名称为空，需要自行实现
-	 * 
-	 * @param base
-	 * @param userId
-	 * @param userName
-	 * @throws Exception 
-	 */
-	private void generateBaseVO(BaseVO base, String userId,String userName) throws Exception {
-		String assignedId = base.getAssignedId();
-		String nextAssign = base.getAssign();
-		String assignedName = base.getAssignedName();
-		String nextAssignName = base.getAssignName();
-
-		if (StringUtils.isEmpty(assignedName) && !StringUtils.isEmpty(assignedId)) {
-			//			assignedName = getUserName(assignedId);
-			base.setAssignedName(assignedName);
-		}
-
-		if (!StringUtils.isEmpty(nextAssign)) {
-			//			nextAssignName = getUserName(nextAssign);
-			if(StringUtil.isEmpty(nextAssignName)) {
-				base.setAssignName(base.getCandidate_names());
-			}else {
-				base.setAssignName(nextAssignName);
-			}
-		}
-
-		String description = base.getDescription();
-		System.out.println("generateBaseVO  currentUserName:" + userName + ";description:" + description);
-		if (description.contains(userName)) {
-			description = description.replaceAll(userName, "您");
-		}
-
-		final String contentInfo = base.getContentInfo().toString();
-		base.setContentInfo(GFJsonUtil.get().parseJson(contentInfo,JSONObject.class));
-		base.setDescription(description);
-		List<CommentVO> commentList = getCommentList(base);
-		base.setComments(commentList);
-
-	}
-
-	private List<CommentVO> getCommentList(BaseVO base) {
-		List<CommentVO> commentList = new ArrayList<>();
-		try {
-			commentList = this.cusTaskService.getComments(base.getProcessInstanceId());
-
-			List<CommentVO> historyCommentList = base.getComments();
-			for (int i = 0;i<commentList.size();i++) {
-				CommentVO commentVO = commentList.get(i);
-				//				commentVO.setUserName(getUserName(commentVO.getUserId()));
-
-				if(i == 0) {
-					if(base.isEnd()) {
-						commentVO.setNextAssignName("流程结束");
-					}else {
-						commentVO.setNextAssign(base.getAssign());
-						commentVO.setNextAssignName(base.getAssignName());
-					}
-				}else {
-					for (CommentVO historyComment : historyCommentList) {
-						if(historyComment.getTaskId().equals(commentVO.getTaskId())) {
-							commentVO.setNextAssign(historyComment.getNextAssign());
-							commentVO.setNextAssignName(historyComment.getNextAssignName());
-							break;
-						}
-					}
-				}
-			}
-		}catch(Exception e) {
-			e.printStackTrace();
-		}
-
-		System.out.println("评论列表："+commentList);
-		return commentList;
-	}
-
-
-	//	/**
-	//	 * 根据userId查找userName,存在多个用逗号分隔
-	//	 * 
-	//	 * @param userIds
-	//	 * @return
-	//	 * @throws Exception 
-	//	 */
-	//	
-	//	public String getUserName(String userIds){
-	//		String userName = "";
-	//		if (StringUtil.isEmpty(userIds))
-	//			return userName;
-	//		List<User> users = this.userService.findUsersByIds(userIds);
-	//		for (User user : users) {
-	//			userName += user.getName() + ",";
-	//		}
-	//		if (userName.contains(",")) {
-	//			userName = userName.substring(0, userName.length() - 1);
-	//		}
-	//		return userName;
-	//	}
-
 
 	/**
 	 * 审批流程详情
 	 * 
 	 * @param taskId 任务id<br/>
 	 * @return
-	 * @throws NumberFormatException
-	 * @throws Exception
 	 */
 	@RequestMapping("/flowDetail")
 	public String toApproval(@RequestParam("taskId") String taskId) {
@@ -351,7 +237,8 @@ public class TaskController {
 				resultMap.put("msg", "taskId must not be empty");
 			}else {
 				BaseVO baseVO = cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
-				List<CommentVO> commentList = this.cusTaskService.getComments(baseVO.getProcessInstanceId());
+				List<CommentVO> commentList = this.processControllder.getCommentList(baseVO);
+				baseVO.setComments(commentList);
 				System.out.println("任务详情：" + baseVO);
 				System.out.println("评论列表：" + commentList);
 				resultMap.put("type", "success");
@@ -370,7 +257,7 @@ public class TaskController {
 	/**
 	 * 处理任务
 	 * 
-	 * @param params:{
+	 * @param json:{
 	 *            userId:'',//流程执行者id<br/>
 	 *            userName:'',//流程执行者名称<br/>
 	 *            taskId:'',//任务id，不能为空<br/>
@@ -385,13 +272,12 @@ public class TaskController {
 	 *            					//示例请看周报（项目外包/行内人员）中的重新申请节点，新增或减少项目，都会影响下一节点的执行人，此时，只用传isChangeData:'true',
 	 *            					//后台会获取各项目的项目经理为下一节点的执行人
 	 *            taskDefinitionKey:'',//当前节点key，指定下一节点执行人时必传，不需要动态指定时不传<br/>
-	 *            contentInfo:'',//与流程无关的业务信息<br/>
+	 *            contentInfo:{},//与流程无关的业务信息<br/>
+	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人<br/>
 	 *             }
 	 */
 	@RequestMapping("/handle")
 	public String handleTask(@RequestBody String json, HttpServletRequest request) {
-		System.out.println("handleTask===================params==" + json);
-
 		Map<String, Object> resultMap = new HashMap<>();
 		if (json.isEmpty()) {
 			resultMap.put("msg", "任务办理失败，必输参数为空！");
@@ -403,11 +289,12 @@ public class TaskController {
 			Map<String, Object> variables = new HashMap<String, Object>();
 			StringBuilder handleFlag = new StringBuilder();
 			String condition = "";
+
 			String taskId = GFJsonUtil.get().getProperty(json, "taskId");
 			String isPassStr = GFJsonUtil.get().getProperty(json, "isPass");
 			String reapplyStr = GFJsonUtil.get().getProperty(json, "reapply");
 			String isEnd = GFJsonUtil.get().getProperty(json, "end");
-			BaseVO baseVO = getBaseVO(json);
+			BaseVO baseVO = getBaseVO(json,taskId);
 
 			try {
 				String userId = GFJsonUtil.get().getProperty(json, "userId");
@@ -465,10 +352,10 @@ public class TaskController {
 	/**
 	 * 从请求参数中获取最新的实体对象
 	 * @param paramsJson
+	 * @param taskId
 	 * @return
 	 */
-	private BaseVO getBaseVO(String params) {
-		String taskId = GFJsonUtil.get().getProperty(params, "taskId");
+	private BaseVO getBaseVO(String params,String taskId) {
 		String candidate_ids = GFJsonUtil.get().getProperty(params, "candidate_ids");
 		String candidate_names = GFJsonUtil.get().getProperty(params, "candidate_names");
 		String currentTaskActivitiId = GFJsonUtil.get().getProperty(params, "taskDefinitionKey");
@@ -476,10 +363,15 @@ public class TaskController {
 		final JSONArray comments = GFJsonUtil.get().getJSONArray(params,"comments");
 
 		BaseVO baseVO = this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
-		baseVO.setTaskDefinitionKey(currentTaskActivitiId);// 当前节点key
-		baseVO.setCandidate_ids(candidate_ids);// 下一节点执行人id
-		baseVO.setCandidate_names(candidate_names);// 下一节点执行人name
-		baseVO.setContentInfo(contentInfo);
+		if(StringUtil.isNotEmpty(currentTaskActivitiId)) {
+			baseVO.setTaskDefinitionKey(currentTaskActivitiId);// 当前节点key
+		}
+		baseVO.setCandidate_ids(candidate_ids);// 动态指定下一节点执行人id，多个人用逗号分隔
+		baseVO.setCandidate_names(candidate_names);// 动态指定下一节点执行人name
+
+		if(contentInfo != null) {
+			baseVO.setContentInfo(contentInfo);
+		}
 		if(comments != null) {
 			Gson gson = new Gson();
 			Type type = new TypeToken<List<CommentVO>>(){}.getType();
@@ -539,12 +431,13 @@ public class TaskController {
 				baseVO.setProcessStatus(BaseVO.APPROVAL_SUCCESS);
 				Task currentTask = this.cusTaskService.getTaskByTaskId(taskId);
 				int totalMembers = getMember("nrOfInstances", currentTask.getExecutionId());
+
 				int agreeMembers = getAgreeMember(baseVO);
 				if ((totalMembers == 0) || ((totalMembers - agreeMembers) == 1)) {
 					String nextActivitiId = ProcessDefinitionCache.get().getNextActivitiId(baseVO,"true");
 					if(ProcessDefinitionCache.ARCHIVE.equals(nextActivitiId)) {//到归档前一个节点才算真正通过
 						baseVO.setDescription(baseVO.getCreateName() + " 的" + workFloWTitle + BaseVO.SUB_DESCRIPTION_PASS);
-					} else {
+					}else {
 						baseVO.setDescription(
 								userName + " 已同意 " + baseVO.getCreateName() + "的" + workFloWTitle);
 					}
@@ -564,13 +457,7 @@ public class TaskController {
 	 */
 	private int getAgreeMember(BaseVO baseVO) {
 		int agreeMembers = 0;
-		final String procDefKey = baseVO.getBusinessKey().contains(":") ? baseVO.getBusinessKey().split(":")[0] : "";
-		boolean isWeeklyReport = ProcessController.MONTHLYREPORT_PERSON_PROCESS.equals(procDefKey) || ProcessController.MONTHLYREPORT_PROJECT_PROCESS.equals(procDefKey);
-		if(isWeeklyReport) {
-			agreeMembers = getMember("agreeMembers", baseVO.getProcessInstanceId());
-		}else {
-			agreeMembers = getMember("agreeMembers"+"_"+baseVO.getTaskDefinitionKey(), baseVO.getProcessInstanceId());
-		}
+		agreeMembers = getMember("agreeMembers"+"_"+baseVO.getTaskDefinitionKey(), baseVO.getProcessInstanceId());
 		return agreeMembers;
 	}
 
@@ -586,15 +473,9 @@ public class TaskController {
 		final String processInstanceId = baseVO.getProcessInstanceId();
 		final String taskDefinitionKey = baseVO.getTaskDefinitionKey();
 		final String businessKey = baseVO.getBusinessKey();
-		final String procDefKey = businessKey.contains(":") ? businessKey.split(":")[0] : "";
-		boolean isWeeklyReport = ProcessController.MONTHLYREPORT_PERSON_PROCESS.equals(procDefKey) || ProcessController.MONTHLYREPORT_PROJECT_PROCESS.equals(procDefKey);
 		CusUserTask userTask = cusUserTaskService.findByProcAndTask(businessKey, taskDefinitionKey);
 		if(CusUserTask.TYPE_MULTI.equals(userTask.getActivityType())) {
-			if(isWeeklyReport) {
-				setMemberToVariable("backMembers", variables, processInstanceId);
-			}else {
-				setMemberToVariable("backMembers"+"_"+taskDefinitionKey, variables, processInstanceId);
-			}
+			setMemberToVariable("backMembers"+"_"+taskDefinitionKey, variables, processInstanceId);
 		}
 	}
 
@@ -602,21 +483,15 @@ public class TaskController {
 	 * 设置同意人数
 	 * 
 	 * @param variables
+	 * @param businessKey
 	 * @param processInstanceId
 	 * @param taskDefinitionKey 
 	 * @throws Exception 
 	 */
 	private void setAgreeMembers(Map<String, Object> variables,String businessKey, String processInstanceId, String taskDefinitionKey) throws Exception {
-
-		final String procDefKey = businessKey.contains(":") ? businessKey.split(":")[0] : "";
-		boolean isWeeklyReport = ProcessController.MONTHLYREPORT_PERSON_PROCESS.equals(procDefKey) || ProcessController.MONTHLYREPORT_PROJECT_PROCESS.equals(procDefKey);
 		CusUserTask userTask = cusUserTaskService.findByProcAndTask(businessKey, taskDefinitionKey);
 		if(CusUserTask.TYPE_MULTI.equals(userTask.getActivityType())) {
-			if(isWeeklyReport) {
-				setMemberToVariable("agreeMembers", variables, processInstanceId);
-			}else {
-				setMemberToVariable("agreeMembers"+"_"+taskDefinitionKey, variables, processInstanceId);
-			}
+			setMemberToVariable("agreeMembers"+"_"+taskDefinitionKey, variables, processInstanceId);
 		}
 	}
 
@@ -710,10 +585,13 @@ public class TaskController {
 			isAutoCompleteNextActiviti = false;
 		}
 
-		updateContentInfo(request, baseVO, procDefKey,isAutoCompleteNextActiviti);//先更新业务信息，再变更各节点的执行人
+		JSONObject jsonObject = baseVO.getContentInfo();
+		if (jsonObject == null)
+			return businessKey;
+		this.processControllder.updateContentInfo(request, jsonObject, procDefKey,isAutoCompleteNextActiviti);//先更新业务信息，再变更各节点的执行人
 
 		boolean isChangeData = "true".equals(isChangeDataStr) ? true : false;//数据改变了更新下一节点执行人
-		updateNextCusUserTaskAssigness(baseVO, condition, isChangeData);
+		this.processControllder.updateNextCusUserTaskAssigness(baseVO, condition, isChangeData);
 
 
 		CusUserTask userTask = cusUserTaskService.findByProcAndTask(businessKey, nextActivitiId);
@@ -722,7 +600,6 @@ public class TaskController {
 			String[] candidate_users = candidate_ids.split(",");
 			List<String> assigneeList = new ArrayList<>();
 			if (null != candidate_users) {
-				System.out.println("ProcessController genareteVariable candidateUserIds:" + candidate_users);
 				assigneeList = Arrays.asList(candidate_users);
 			}
 			if (assigneeList.size() < 1) {//节点的执行人为空时自动跳过该节点
@@ -736,84 +613,47 @@ public class TaskController {
 		return businessKey;
 	}
 
-	/**
-	 * 更新下一节点执行人
-	 * @param baseVO
-	 * @param condition
-	 * @param isChangeData
-	 * @throws Exception
-	 */
-	private void updateNextCusUserTaskAssigness(BaseVO baseVO, String condition, boolean isChangeData) throws Exception {
-		final String processKey = baseVO.getBusinessKey().split("\\:")[0];
-		switch (processKey) {
-		//		case ProcessController.REQUIREMENTCONFIRMATION_PROCESS:
-		//		case ProcessController.REQUIREMENTSPLIT_PROCESS:
-		//			this.cusUserTaskService.updateNextCusUserTaskInfo(baseVO, condition,isChangeData,requirementService);
-		//			break;
-		default://默认从前端页面获取candidate_ids和candidate_names进行设置节点执行人
-			this.cusUserTaskService.updateNextCusUserTaskInfo(baseVO, condition,isChangeData,null);
-			break;
-		}
-	}
-
 
 	/**
 	 * 重置多实例任务节点同意人数或驳回人数流程变量
 	 * @param variables
 	 * @param businessKey
-	 * @param nextActivitiId
+	 * @param taskDefinitionKey
 	 * @throws Exception
 	 */
 	private void resetMembers(Map<String, Object> variables, String businessKey, String taskDefinitionKey) throws Exception {
-		final String procDefKey = businessKey.contains(":") ? businessKey.split(":")[0] : "";
-		boolean isWeeklyReport = ProcessController.MONTHLYREPORT_PERSON_PROCESS.equals(procDefKey) || ProcessController.MONTHLYREPORT_PROJECT_PROCESS.equals(procDefKey);
-		if(isWeeklyReport) {
-			variables.put("backMembers", 0);
-			variables.put("agreeMembers", 0);
-		}else {
-			variables.put("backMembers"+"_"+taskDefinitionKey, 0);
-			variables.put("agreeMembers"+"_"+taskDefinitionKey, 0);
-		}
-	}
-
-	/**
-	 * 更新各流程的业务信息
-	 * @param request
-	 * @param baseVO
-	 * @param processKey
-	 * @param isAutoCompleteNextActiviti 
-	 */
-	private void updateContentInfo(HttpServletRequest request, BaseVO baseVO, String processKey, boolean isAutoCompleteNextActiviti) {
-		JSONObject jsonObject = baseVO.getContentInfo();
-		if (jsonObject == null)
-			return;
-		switch (processKey) {
-		case ProcessController.MONTHLYREPORT_PERSON_PROCESS:
-		case ProcessController.MONTHLYREPORT_PROJECT_PROCESS:
-			if(isAutoCompleteNextActiviti) {//归档保存周报
-				jsonObject.put("reportStatus", "0");
-			}
-			//			reportControllder.updateReport(request, jsonObject.toString());
-			break;
-			//		 case ProcessController.REQUIREMENTCONFIRMATION_PROCESS:
-			//		 case ProcessController.REQUIREMENTSPLIT_PROCESS:
-			//		 break;
-
-		}
+		variables.put("backMembers"+"_"+taskDefinitionKey, 0);
+		variables.put("agreeMembers"+"_"+taskDefinitionKey, 0);
 	}
 
 	/**
 	 * userId认领任务 <br/>
-	 * task.setAssignee(userId)
+	 * task.setAssignee(userId)<br/>
 	 * 
+	 * @param json:{
+	 * 			  userId:'',//认领人id,不能为空<br/>
+	 * 			  userName:'',//认领人名称,不能为空<br/>
+	 *            taskId:'',//任务id，不能为空<br/>
+	 *            content:'',//评论内容，可为空<br/>
+	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人
+	 *            }
 	 * @return
 	 */
 	@RequestMapping("/claim")
-	public String claim(@RequestParam("taskId") String taskId, @RequestParam("userId") String userId) {
+	public String claim(@RequestBody String json) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			this.cusTaskService.claim(taskId, userId);
+			String taskId = GFJsonUtil.get().getProperty(json, "taskId");
+			String userId = GFJsonUtil.get().getProperty(json, "userId");
+			String userName = GFJsonUtil.get().getProperty(json, "userName");
+			String msg = GFJsonUtil.get().getProperty(json, "content");
+			boolean hasComments = GFJsonUtil.get().containsKey(json, "comments");
+			BaseVO baseVO = null;
+			if(hasComments) {
+				baseVO = getBaseVO(json,taskId);
+			}
+			this.cusTaskService.claim(taskId, userId,userName,msg,hasComments,baseVO);
 			resultMap.put("type", "success");
 			resultMap.put("msg", "任务认领成功！");
 		} catch (ActivitiObjectNotFoundException e) {
@@ -833,26 +673,49 @@ public class TaskController {
 
 	/**
 	 * 委托任务给userId，<br/>
-	 * task.setOwner(task.getAssignee());
+	 * 
+	 * task.setOwner(task.getAssignee());<br/>
 	 * task.setAssignee(userId)
+	 * 
+	 * @param json:{
+	 * 			  fromUserId:'',//委托人id，不能为空<br/>
+	 *            toUserId:'',//委托的接收人id，不能为空<br/>
+	 *            taskId:'',//任务id，不能为空<br/>
+	 *            content:'',//评论内容，可为空<br/>
+	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人
+	 *            }
 	 * 
 	 * @return
 	 */
 	@RequestMapping("/delegate")
-	public String delegateTask(@RequestParam("taskId") String taskId, @RequestParam("userId") String userId) {
+	public String delegateTask(@RequestBody String json) {
 
-		System.out.println("delegateTask=======");
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			this.cusTaskService.delegateTask(taskId, userId);
+
+			String taskId = GFJsonUtil.get().getProperty(json, "taskId");
+			String fromUserId = GFJsonUtil.get().getProperty(json, "fromUserId");
+			String toUserId = GFJsonUtil.get().getProperty(json, "toUserId");
+			String msg = GFJsonUtil.get().getProperty(json, "content");
+			Map<String, Object> variables = new HashMap<>();
+			boolean hasComments = GFJsonUtil.get().containsKey(json, "comments");
+			if(hasComments) {
+				BaseVO baseVO = getBaseVO(json,taskId);
+				variables.put("entity", baseVO);
+			}
+			
+			this.cusTaskService.delegateTask(taskId, fromUserId,toUserId,msg,variables);
+
 			resultMap.put("type", "success");
 			resultMap.put("msg", "任务委托成功！");
 		} catch (ActivitiObjectNotFoundException e) {
-			resultMap.put("type", "error");
-			resultMap.put("msg", "此任务不存在！任务委托失败！");
+			e.printStackTrace();
+			resultMap.put("type", "empty");
+			resultMap.put("msg", e);
 		} catch (Exception e) {
+			e.printStackTrace();
 			resultMap.put("type", "error");
-			resultMap.put("msg", "任务委托失败！请联系管理员！");
+			resultMap.put("msg", e);
 		}
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
@@ -862,24 +725,24 @@ public class TaskController {
 	/**
 	 * 撤销任务<br/>
 	 * 	  userId:撤回的执行人id
-          taskId:撤回的目标taskId,<br/>
-          processInstanceId:撤回所在的流程实例,<br/>
-          historyTaskDefKey:撤回的目标节点id,<br/>
-          nextTaskDefKey:被撤回的节点id
+          backToTaskId:撤回的目标taskId,<br/>
+          backToActivitiType:撤回的目标节点类型：M:多实例节点,N:普通用户节点,<br/>
+          backFromTaskId:被撤回的任务id,<br/>
+          backFromActivitiType:被撤回的节点类型：M:多实例节点,N:普通用户节点,<br/>
 	 * 
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping("/revoke")
 	public String revoke(@RequestParam("userId") String userId,
-			@RequestParam("taskId") String taskId,
-			@RequestParam("processInstanceId") String processInstanceId,
-			@RequestParam("historyTaskDefKey") String historyTaskDefKey,
-			@RequestParam("nextTaskDefKey") String nextTaskDefKey) {
+			@RequestParam("backToTaskId") String backToTaskId,
+			@RequestParam("backToActivitiType") String backToActivitiType,
+			@RequestParam("backFromTaskId") String backFromTaskId,
+			@RequestParam("backFromActivitiType") String backFromActivitiType) {
 		Map<String, Object> resultMap = new HashMap<>();
 
 		try {
-			Integer revokeFlag = this.cusTaskService.revoke(userId,taskId, processInstanceId,historyTaskDefKey,nextTaskDefKey);
+			Integer revokeFlag = this.cusTaskService.revoke(userId,backToTaskId,backToActivitiType, backFromTaskId,backFromActivitiType);
 			if (revokeFlag == 0) {
 				resultMap.put("type", "success");
 				resultMap.put("msg", "撤销任务成功！");
@@ -888,10 +751,10 @@ public class TaskController {
 				resultMap.put("msg", "撤销任务失败 - [ 此审批流程已结束! ]");
 			} else if (revokeFlag == 2) {
 				resultMap.put("type", "error");
-				resultMap.put("msg", "撤销任务失败 - [ 下一结点已经通过,不能撤销! ]");
+				resultMap.put("msg", "撤销任务失败 - [ 该任务非当前用户提交，无法撤回! ]");
 			} else if (revokeFlag == 3) {
 				resultMap.put("type", "error");
-				resultMap.put("msg", "撤销任务失败 - [ 该任务非当前用户提交，无法撤回! ]");
+				resultMap.put("msg", "撤销任务失败 - [ 下一结点已经通过,不能撤销! ]");
 			} else if (revokeFlag == -1) {
 				resultMap.put("type", "error");
 				resultMap.put("msg", "撤销任务失败 - [ 未找到目标任务，无法撤回! ]");

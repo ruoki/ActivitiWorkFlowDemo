@@ -28,6 +28,12 @@ public class BaseVO implements Serializable {
 	public static final String APPROVAL_SUCCESS = "APPROVAL_SUCCESS";
 	/** 审批失败：驳回 */
 	public static final String APPROVAL_FAILED = "APPROVAL_FAILED";
+	/** 委托 */
+	public static final String TASK_PENDING = "PENDING";
+	/** 委托完成 */
+	public static final String TASK_RESOLVED = "RESOLVED";
+	/** 认领 */
+	public static final String TASK_CLAIMED = "TASK_CLAIMED";
 	/** 归档 */
 	public static final String FILED = "FILED";
 	/** 结束 */
@@ -50,11 +56,13 @@ public class BaseVO implements Serializable {
 	private String handledTaskId;// 已处理任务id
 	private String handledTaskDefinitionKey;// 已处理节点
 	private String handledTaskName;// 已处理节点名称
+	private String handledActivitiType;// 已处理节点类型：M:多实例;N:普通节点
 	private String assignedId;// 已处理节点的受理人
 	private String assignedName;// 已处理节点的受理人
 	private String toHandleTaskId;// 当前节点的任务id
 	private String taskDefinitionKey;// 当前节点key
-	private String toHandleTaskName;// 当前节点点名
+	private String toHandleTaskName;// 当前节点名
+	private String toHandleActivitiType;// 当前节点类型：M:多实例;N:普通节点
 	private String assign;// 当前节点的受理人
 	private String assignName;// 当前节点的受理人
 	private String description;// 描述
@@ -62,12 +70,13 @@ public class BaseVO implements Serializable {
 	private String taskStartTime;// 任务的开始时间
 	private String operateTime;// 任务的结束时间(处理时间)
 	private String claimTime;// 任务的签收时间
-	private boolean isEnd;// 流程是否结束
+	private boolean end;// 流程是否结束
 	private boolean suspended;// 是否挂起
 	private String processDefinitionId;// 流程定义id
 	private String processDefinitionName;// 流程名称
 	private String processDefinitionKey;// 流程key，任务跳转用
 	private String processStatus;// 流程状态：待审批、审批通过、审批退回、归档、结束
+	private String delegationState;//流程委托状态
 	private int version;// 流程版本号
 	private JSONObject contentInfo;// 流程的业务相关
 	private String candidate_ids;//下一节点执行人,多个用逗号隔开
@@ -205,6 +214,15 @@ public class BaseVO implements Serializable {
 		this.handledTaskName = handledTaskName;
 	}
 
+	
+	public String getHandledActivitiType() {
+		return handledActivitiType;
+	}
+
+	public void setHandledActivitiType(String handledActivitiType) {
+		this.handledActivitiType = handledActivitiType;
+	}
+
 	public String getAssignedId() {
 		return assignedId;
 	}
@@ -222,7 +240,6 @@ public class BaseVO implements Serializable {
 	}
 
 	public String getToHandleTaskId() {
-
 		if (this.toHandleTaskId == null) {
 			this.toHandleTaskId = (null == task) ? "" : task.getId();
 		}
@@ -253,6 +270,14 @@ public class BaseVO implements Serializable {
 
 	public void setToHandleTaskName(String toHandleTaskName) {
 		this.toHandleTaskName = toHandleTaskName;
+	}
+	
+	public String getToHandleActivitiType() {
+		return toHandleActivitiType;
+	}
+
+	public void setToHandleActivitiType(String toHandleActivitiType) {
+		this.toHandleActivitiType = toHandleActivitiType;
 	}
 
 	public String getAssign() {
@@ -323,11 +348,11 @@ public class BaseVO implements Serializable {
 	}
 
 	public boolean isEnd() {
-		return isEnd;
+		return end;
 	}
 
-	public void setEnd(boolean isEnd) {
-		this.isEnd = isEnd;
+	public void setEnd(boolean end) {
+		this.end = end;
 	}
 
 	public boolean isSuspended() {
@@ -369,6 +394,15 @@ public class BaseVO implements Serializable {
 
 	public void setProcessStatus(String processStatus) {
 		this.processStatus = processStatus;
+	}
+
+	
+	public String getDelegationState() {
+		return delegationState;
+	}
+
+	public void setDelegationState(String delegationState) {
+		this.delegationState = delegationState;
 	}
 
 	public int getVersion() {
@@ -451,7 +485,7 @@ public class BaseVO implements Serializable {
 				+ ", taskDefinitionKey=" + taskDefinitionKey + ", toHandleTaskName=" + toHandleTaskName + ", assign="
 				+ assign + ", assignName=" + assignName + ", description=" + description + ", businessKey="
 				+ businessKey + ", taskStartTime=" + taskStartTime + ", operateTime=" + operateTime + ", claimTime=" + claimTime
-				+ ", isEnd=" + isEnd + ", suspended=" + suspended + ", processDefinitionId=" + processDefinitionId
+				+ ", end=" + end + ", suspended=" + suspended + ", processDefinitionId=" + processDefinitionId
 				+ ", processDefinitionName=" + processDefinitionName + ", processDefinitionKey=" + processDefinitionKey
 				+ ", processStatus=" + processStatus + ", version=" + version + ", contentInfo=" + contentInfo
 				+ ", candidate_ids=" + candidate_ids + ", candidate_names=" + candidate_names + ", comments=" + comments

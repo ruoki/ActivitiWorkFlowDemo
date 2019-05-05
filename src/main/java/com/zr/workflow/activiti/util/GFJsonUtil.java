@@ -211,6 +211,22 @@ public class GFJsonUtil {
 			return null;
 		}
 	}
+	
+	/**
+	 * 是否包含某元素
+	 * @param json
+	 * @param paramKey
+	 * @return
+	 */
+	public boolean containsKey(String json, String paramKey) {
+		JSONObject obj = JSON.parseObject(json);
+		Set<String> set = obj.keySet();
+		if(set.contains(paramKey)) {
+			return true;
+		}else {
+			return false;
+		}
+	}
 
 	/**
 	 * 用fastJson去除json 某属性

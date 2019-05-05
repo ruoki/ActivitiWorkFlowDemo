@@ -18,7 +18,7 @@ public class CustomGroupEntityManager extends GroupEntityManager {
 	}
 
 	public List<Group> findGroupsByUser(String userId) {
-		System.out.println("CustomUserEntityManager  findGroupsByUser userId:" + userId);
+		System.out.println("CustomGroupEntityManager  findGroupsByUser userId:" + userId);
 		if (userId == null)
 			return null;
 		boolean hasUser = hasUser(userId);

@@ -77,9 +77,8 @@ public class UserService {
         return userDAO.update(entity);
     }
     
-
-	public User findUserById(String userId) {
-		return userDAO.findUserById(userId);
+	public List<User> findUsersByIds(String userIds) {
+		return userDAO.findUsersByIds(userIds);
 	}
 	
 
@@ -93,7 +92,7 @@ public class UserService {
 		if (StringUtil.isEmpty(userId))
 			return new HashMap<>();
 		
-		User manager = findUserById(userId);
+		User manager = getUserById(userId);
 		String user_id = manager == null ? "" : manager.getUserId();
 		String userName = manager == null ? "" : manager.getUserName();
 

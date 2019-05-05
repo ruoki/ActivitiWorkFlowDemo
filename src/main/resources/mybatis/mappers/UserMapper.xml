@@ -66,8 +66,10 @@
 	</update>
 	
 	
-    <select id="findUserById" parameterType="String" resultMap="UserResult">
-    	SELECT * FROM user WHERE status = '0' and id = #{userId};
+    <!-- 根据用户ID查询 -->
+    <select id="findUsersByIds" resultMap="UserResult">
+ 	   	SELECT * FROM user WHERE status='0' and FIND_IN_SET(id,#{userIds})
     </select>
+    
     
 </mapper>

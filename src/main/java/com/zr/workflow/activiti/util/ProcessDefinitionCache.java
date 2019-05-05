@@ -1,5 +1,9 @@
 package com.zr.workflow.activiti.util;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.activiti.engine.RepositoryService;
 import org.activiti.engine.RuntimeService;
 import org.activiti.engine.impl.RepositoryServiceImpl;
@@ -19,12 +23,7 @@ import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.runtime.Execution;
 import org.apache.commons.lang.StringUtils;
 
-import com.zr.workflow.activiti.controller.ProcessController;
 import com.zr.workflow.activiti.entity.BaseVO;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 流程定义缓存
@@ -94,7 +93,6 @@ public class ProcessDefinitionCache {
 	 * @return
 	 */
 	public List<ActivityImpl> getActivities(String processDefinitionId) {
-		System.out.println("getActivities activities:" + activities);
 		if (activities != null && activities.size() > 0 && null != activities.get(processDefinitionId)) {
 			return activities.get(processDefinitionId);
 		} else {
@@ -242,13 +240,11 @@ public class ProcessDefinitionCache {
 			// .processInstanceId(processInstanceId).singleResult();
 			// 当前流程节点Id信息
 			// String currentActivitiId = execution.getActivityId();
-			System.out.println("TaskService getNextTaskInfo currentActivitiId:" + currentActivitiId);
 
 			String tempActivitiId = null;
 			// 遍历所有节点信息
 			for (ActivityImpl activityImpl : activitiList) {
 				tempActivitiId = activityImpl.getId();
-				System.out.println("TaskService getNextTaskInfo tempActivitiId:"+tempActivitiId);
 				if (currentActivitiId.equals(tempActivitiId)) {
 					// 获取下一个节点信息
 					task = nextTaskDefinition(activityImpl, tempActivitiId, condition, processInstanceId, procDefKey);
@@ -286,7 +282,6 @@ public class ProcessDefinitionCache {
 			String processInstanceId, String procDefKey) {
 
 		TaskDefinition taskDefinition = null;
-		System.out.println("TaskService nextTaskDefinition:" + activityImpl.getProperty("type"));
 		// 如果遍历节点为用户任务并且节点不是当前节点信息
 		if ("userTask".equals(activityImpl.getProperty("type")) && !currentActivitiId.equals(activityImpl.getId())) {
 			taskDefinition = getUserTask(activityImpl);
@@ -368,14 +363,10 @@ public class ProcessDefinitionCache {
 					processInstanceId, procDefKey);
 		} else if (outTransitions.size() > 1) { // 如果排他网关有多条线路信息
 			Object el = elString;
-			if (!ProcessController.MONTHLYREPORT_PERSON_PROCESS.equalsIgnoreCase(procDefKey)
-					&& !ProcessController.MONTHLYREPORT_PROJECT_PROCESS.equalsIgnoreCase(procDefKey)) {
-				el = "true".equals(elString) ? true : false;
-			}
+			el = "true".equals(elString) ? true : false;
 
 			for (PvmTransition tr1 : outTransitions) {
 				s = tr1.getProperty("conditionText"); // 获取排他网关线路判断条件信息
-				System.out.println("CusUserTaskService getNextTaskOfGateway conditionText:"+s);
 				// 判断el表达式是否成立
 				if (isCondition(activityImpl.getId(), StringUtils.trim(s.toString()), el)) {
 					return nextTaskDefinition((ActivityImpl) tr1.getDestination(), activityId, elString,

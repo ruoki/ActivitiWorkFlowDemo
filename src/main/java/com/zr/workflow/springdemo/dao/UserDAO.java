@@ -31,5 +31,5 @@ public interface UserDAO {
 	public int update(User user);
 	
 	
-	public User findUserById(@Param("userId")String userId);
+	public List<User> findUsersByIds(@Param("userId")String userIds);
 }

@@ -31,7 +31,7 @@ public class CusTaskListener implements TaskListener {
 	private static final long serialVersionUID = 1L;
 
 	@Resource
-	protected RepositoryService repositoryService;
+	private RepositoryService repositoryService;
 
 	@Resource
 	private CusUserTaskService cusUserTaskService;
@@ -125,8 +125,6 @@ public class CusTaskListener implements TaskListener {
 		if (null != candidateUserIds) {
 			assigneeList = Arrays.asList(candidateUserIds);
 		}
-		System.out.println("CusTaskListener getAssigneeList candidateUserIds:" + candidateUserIds
-				+ ";assigneeList:" + assigneeList.size());
 		if (assigneeList.size() < 1) {
 			autoPass(delegateTask, delegateTask.getTaskDefinitionKey());
 			return null;
@@ -143,7 +141,6 @@ public class CusTaskListener implements TaskListener {
 	 */
 	private void autoPass(DelegateTask delegateTask, String taskDefKey) throws Exception {
 		ActivityImpl nextNodeInfo = ProcessDefinitionCache.get().getNextNodeInfo(repositoryService,runtimeService,delegateTask.getProcessInstanceId(),taskDefKey);
-		System.out.println("CusTaskListener setAssigneeList nextNodeid:"+nextNodeInfo.getId());
 		if(nextNodeInfo.getId().contains("reapply")) {
 			delegateTask.setVariable(nextNodeInfo.getId(), "false");//reapply_projectManagerAudit等等
 		}else {

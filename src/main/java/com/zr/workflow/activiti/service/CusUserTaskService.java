@@ -32,9 +32,9 @@ import com.zr.workflow.activiti.util.StringUtil;
 public class CusUserTaskService {
 
 	@Resource
-	protected RepositoryService repositoryService;
+	private RepositoryService repositoryService;
 	@Resource
-	RuntimeService runtimeService;
+	private RuntimeService runtimeService;
 	@Resource
 	private ProcessService processService;
 	@Resource
@@ -166,6 +166,8 @@ public class CusUserTaskService {
 			setUserTaskAssgine(baseVO, cusUserTask,assigneeExpression);
 		}
 	}
+
+
 	public void setUserTaskAssgine(BaseVO baseVO, CusUserTask cusUserTask, String assigneeExpression) throws Exception {
 		final String activitiType = cusUserTask.getActivityType();
 		if(CusUserTask.TYPE_NORMAL.equals(activitiType)){
@@ -226,8 +228,6 @@ public class CusUserTaskService {
 		String candidateIds = baseVO.getCandidate_ids();
 		String candidateNames = baseVO.getCandidate_names();
 
-		System.out.println("RequirementService setCandidateUsers candidateNames:"+candidateNames);
-
 		cusUserTask.setCandidate_ids(candidateIds);
 		cusUserTask.setCandidate_name(candidateNames);
 		//baseVO中的candidate_ids设置过一个节点后不让再给第二个节点
@@ -247,7 +247,6 @@ public class CusUserTaskService {
 	 */
 	public void updateNextCusUserTaskInfo(BaseVO baseVO, String condition,boolean isChangeData,CusProcess cusProcess) throws Exception {
 		this.cusProcess = cusProcess;
-		System.out.println("CusUserTaskService updateNextCusUserTaskInfo condition:" + condition + ";baseVO:" + baseVO);
 		String nextTaskDefKey = ProcessDefinitionCache.get().getNextActivitiId(baseVO,condition);
 
 		updateUserTaskAssignee(baseVO, isChangeData, nextTaskDefKey);
@@ -270,7 +269,6 @@ public class CusUserTaskService {
 
 		String candidate_ids = baseVO.getCandidate_ids();
 		String candidate_names = baseVO.getCandidate_names();
-		System.out.println("CusUserTaskService updateUserTaskAssignee isChangeData:" + isChangeData+";candidate_ids:"+candidate_ids);
 
 		if(StringUtil.isEmpty(candidate_ids) && isChangeData) {
 			updateCusUserTaskAssgine(baseVO, cusUserTask,"");
@@ -379,7 +377,6 @@ public class CusUserTaskService {
 	 */
 	public void autoPass(Map<String, Object> variables,String processInstanceId, String taskDefKey) throws Exception {
 		ActivityImpl nextNodeInfo = ProcessDefinitionCache.get().getNextNodeInfo(repositoryService,runtimeService,processInstanceId,taskDefKey);
-		System.out.println("autoPass nextNodeid:"+nextNodeInfo.getId());
 		if(nextNodeInfo.getId().contains("reapply")) {
 			variables.put(nextNodeInfo.getId(), "false");//reapply_projectManagerAudit等等
 		}else {

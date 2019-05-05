@@ -37,14 +37,13 @@ import com.zr.workflow.activiti.util.StringUtil;
 @Service
 public class ProcessService{
 	@Resource
-	RepositoryService repositoryService;
+	private RepositoryService repositoryService;
 	@Resource
-	RuntimeService runtimeService;
+	private RuntimeService runtimeService;
 	@Resource
-	HistoryService historyService;
+	private HistoryService historyService;
 	@Resource
-	CusTaskService cusTaskService;
-
+	private CusTaskService cusTaskService;
 
 	/**
 	 * 查询已部署的流程定义列表<br/>
@@ -170,6 +169,23 @@ public class ProcessService{
 		List<HistoricProcessInstance> list = historQuery.list();
 		return list;
 	}
+	
+
+	/**
+	 * 查询所有流程实例（包括结束的和正在运行的）<br/>
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
+
+	public List<BaseVO> findAllProcessInstances(Page<BaseVO> page) throws Exception {
+
+		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
+				.orderByProcessInstanceStartTime().desc();
+
+		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
+		return processList;
+	}
 
 	/**
 	 * 查询我的流程实例（包括结束的和正在运行的）<br/>
@@ -183,7 +199,6 @@ public class ProcessService{
 				.startedBy(userCode).orderByProcessInstanceStartTime().desc();
 
 		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
-		System.out.println("processList:" + processList);
 		return processList;
 	}
 
@@ -294,8 +309,6 @@ public class ProcessService{
 	 */
 	public void deleteProcessInstance(String processInstanceId, String deleteReason, boolean cascade) throws Exception {
 		boolean isEnd = isProcessEnd(processInstanceId);
-		System.out.println("ProcessService deleteProcessInstance processInstanceId:" + processInstanceId
-				+ ";isProcessEnd:" + isEnd);
 		if (!isEnd) {
 			runtimeService.deleteProcessInstance(processInstanceId, deleteReason);
 		}
@@ -343,6 +356,18 @@ public class ProcessService{
 	public Map<String, Object> getRunVariables(String processInstanceId) {
 		Map<String, Object> obj = this.runtimeService.getVariables(processInstanceId);
 		return obj;
+	}
+	
+
+	/**
+	 * 设置流程变量
+	 * @param processInstanceId
+	 * @param variables
+	 */
+	public void setVariables(String processInstanceId, Map<String, Object> variables) {
+		if (variables != null) {
+			this.runtimeService.setVariables(processInstanceId,variables);
+		}
 	}
 
 	/**

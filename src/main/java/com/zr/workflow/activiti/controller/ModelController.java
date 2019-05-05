@@ -90,7 +90,6 @@ public class ModelController {
 	 */
 	@RequestMapping("/deleteModel")
 	public String deleteModel(String modelId) {
-		System.out.println("ModelController deleteModel: modelId = " + modelId);
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
@@ -158,9 +157,7 @@ public class ModelController {
 	public String oneButtonToDeleteModel(@RequestBody String json) {
 		Map<String, String> resultMap = new HashMap<>();
 		try {
-			System.out.println("ModelController oneButtonToDeleteModel models:" + json);
 			JSONArray models = GFJsonUtil.get().parseArray(json);
-			System.out.println("ModelController oneButtonToDeleteModel models.size():" + models.size());
 			for (int i = 0; i < models.size(); i++) {
 				JSONObject model = (JSONObject) models.get(i);
 				String modelId = GFJsonUtil.get().getProperty(model,"id");
