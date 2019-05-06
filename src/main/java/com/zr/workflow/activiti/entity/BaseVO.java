@@ -214,7 +214,7 @@ public class BaseVO implements Serializable {
 		this.handledTaskName = handledTaskName;
 	}
 
-	
+
 	public String getHandledActivitiType() {
 		return handledActivitiType;
 	}
@@ -271,7 +271,7 @@ public class BaseVO implements Serializable {
 	public void setToHandleTaskName(String toHandleTaskName) {
 		this.toHandleTaskName = toHandleTaskName;
 	}
-	
+
 	public String getToHandleActivitiType() {
 		return toHandleActivitiType;
 	}
@@ -396,7 +396,7 @@ public class BaseVO implements Serializable {
 		this.processStatus = processStatus;
 	}
 
-	
+
 	public String getDelegationState() {
 		return delegationState;
 	}

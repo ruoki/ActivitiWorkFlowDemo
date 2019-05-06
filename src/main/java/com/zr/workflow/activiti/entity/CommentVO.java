@@ -77,6 +77,7 @@ public class CommentVO implements Serializable {
 	public void setTime(Date time) {
 		this.time = DateFormatUtil.format(time);
 	}
+
 	public String getNextAssign() {
 		return nextAssign;
 	}
@@ -89,6 +90,7 @@ public class CommentVO implements Serializable {
 	public void setNextAssignName(String nextAssignName) {
 		this.nextAssignName = nextAssignName;
 	}
+
 	@Override
 	public String toString() {
 		return "CommentVO [id=" + id + ", userId=" + userId + ", userName=" + userName + ", content=" + content

@@ -10,12 +10,12 @@ public class User {
 	private String userCode;
 	private String userName;
 	private String password;
-	
-	
+
+
 	public User() {
 		super();
 	}
-	
+
 	public String getUserId() {
 		return userId;
 	}
@@ -46,6 +46,6 @@ public class User {
 		return "User [userId=" + userId + ", userCode=" + userCode + ", userName=" + userName + ", password=" + password
 				+ "]";
 	}
-	
-	
+
+
 }

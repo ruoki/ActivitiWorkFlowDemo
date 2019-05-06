@@ -169,7 +169,7 @@ public class ProcessService{
 		List<HistoricProcessInstance> list = historQuery.list();
 		return list;
 	}
-	
+
 
 	/**
 	 * 查询所有流程实例（包括结束的和正在运行的）<br/>
@@ -275,7 +275,7 @@ public class ProcessService{
 			String processInstanceId = historicProcessInstance.getId();
 			BaseVO base = null;
 			if (null != historicProcessInstance.getEndTime()) {
-				base = getBaseVOFromHistoryVariable(null, historicProcessInstance, processInstanceId);
+				base = getBaseVOFromHistoryVariable(processInstanceId);
 				base.setDeleteReason(historicProcessInstance.getDeleteReason());
 				base.setEnd(true);
 			}else {
@@ -285,7 +285,7 @@ public class ProcessService{
 			historicTaskInstance = historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstanceId).orderByHistoricTaskInstanceEndTime().desc().list().get(0);
 			if (null == base) continue;
 			cusTaskService.setBaseVO(base,null,historicTaskInstance,null, historicProcessInstance);
-				processList.add(base);
+			processList.add(base);
 		}
 		return processList;
 	}
@@ -357,7 +357,7 @@ public class ProcessService{
 		Map<String, Object> obj = this.runtimeService.getVariables(processInstanceId);
 		return obj;
 	}
-	
+
 
 	/**
 	 * 设置流程变量
@@ -371,56 +371,34 @@ public class ProcessService{
 	}
 
 	/**
-	 * select RES.* from ACT_HI_VARINST RES WHERE RES.PROC_INST_ID_ = ? order by
-	 * RES.ID_ asc LIMIT ? OFFSET ?<br/>
-	 * select * from ACT_GE_BYTEARRAY where ID_ = ? <br/>
-	 * 
-	 * @param historicTaskInstance
-	 * @param historicProcessInstance
+	 * 获取历史流程变量entity对象
 	 * @param processInstanceId
 	 * @return
 	 */
-	public BaseVO getBaseVOFromHistoryVariable(HistoricTaskInstance historicTaskInstance,
-			HistoricProcessInstance historicProcessInstance, String processInstanceId) {
+	public BaseVO getBaseVOFromHistoryVariable(String processInstanceId) {
 
-		BaseVO base = (BaseVO) getHistoryVariable("entity", true, processInstanceId, historicTaskInstance,
-				historicProcessInstance);
+		BaseVO base = (BaseVO) getHistoryVariable("entity",processInstanceId);
 		return base;
 	}
 
-	private Object getHistoryVariable(String variableKey, boolean isSerializable, String processInstanceId,
-			HistoricTaskInstance historicTaskInstance, HistoricProcessInstance historicProcessInstance) {
+	/**
+	 * 获取历史流程变量
+	 * select RES.* from ACT_HI_VARINST RES WHERE RES.PROC_INST_ID_ = ? order by
+	 * RES.ID_ asc LIMIT ? OFFSET ?<br/>
+	 * select * from ACT_GE_BYTEARRAY where ID_ = ? <br/>
+	 * @param variableKey
+	 * @param processInstanceId
+	 * @return
+	 */
+	public Object getHistoryVariable(String variableKey, String processInstanceId) {
 
-		List<HistoricVariableInstance> listVar = this.historyService.createHistoricVariableInstanceQuery()
+		List<HistoricVariableInstance> listVar = this.historyService.createHistoricVariableInstanceQuery().variableName(variableKey)
 				.processInstanceId(processInstanceId).list();
-		listSort(listVar);
+
 		Object obj = null;
-		for (HistoricVariableInstance var : listVar) {
-			if (isSerializable) {
-				if ("serializable".equals(var.getVariableTypeName()) && variableKey.equals(var.getVariableName())) {
-					if (historicTaskInstance != null) {
-						if (historicTaskInstance.getId().equals(var.getTaskId())) {
-							obj = var.getValue();
-							break;
-						}
-					} else if (historicProcessInstance != null) {
-						obj = var.getValue();
-						break;
-					}
-				}
-			} else {
-				if (variableKey.equals(var.getVariableName())) {
-					if (historicTaskInstance != null) {
-						if (historicTaskInstance.getId().equals(var.getTaskId())) {
-							obj = var.getValue();
-							break;
-						}
-					} else if (historicProcessInstance != null) {
-						obj = var.getValue();
-						break;
-					}
-				}
-			}
+		if(listVar.size() > 0) {
+			listSort(listVar);
+			obj = listVar.get(0).getValue();
 		}
 		return obj;
 	}

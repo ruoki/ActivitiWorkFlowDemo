@@ -237,6 +237,7 @@ public class TaskController {
 				resultMap.put("msg", "taskId must not be empty");
 			}else {
 				BaseVO baseVO = cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
+
 				List<CommentVO> commentList = this.processControllder.getCommentList(baseVO);
 				baseVO.setComments(commentList);
 				System.out.println("任务详情：" + baseVO);
@@ -703,7 +704,7 @@ public class TaskController {
 				BaseVO baseVO = getBaseVO(json,taskId);
 				variables.put("entity", baseVO);
 			}
-			
+
 			this.cusTaskService.delegateTask(taskId, fromUserId,toUserId,msg,variables);
 
 			resultMap.put("type", "success");

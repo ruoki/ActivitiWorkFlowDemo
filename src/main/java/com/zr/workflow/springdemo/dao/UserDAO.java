@@ -15,21 +15,21 @@ public interface UserDAO {
 
 	public List<User> getAllUsers();
 
-    /**
-     * 查询（模糊查询）
-     * @param map
-     * @return集合
-     */
-    public List<User> findLike(User user);
-    
+	/**
+	 * 查询（模糊查询）
+	 * @param map
+	 * @return集合
+	 */
+	public List<User> findLike(User user);
+
 	public User getUserById(@Param("userId")String userId);
 	public User getUserByCode(@Param("userCode")String userCode);
-	
+
 	public int add(User user);
 	public int delete(@Param("userId")String userId);
 	public int deleteAll();
 	public int update(User user);
-	
-	
+
+
 	public List<User> findUsersByIds(@Param("userId")String userIds);
 }

@@ -17,7 +17,6 @@ import org.activiti.engine.TaskService;
 import org.activiti.engine.history.HistoricActivityInstance;
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.history.HistoricTaskInstance;
-import org.activiti.engine.history.HistoricTaskInstanceQuery;
 import org.activiti.engine.impl.identity.Authentication;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.activiti.engine.impl.pvm.PvmTransition;
@@ -47,7 +46,7 @@ import com.zr.workflow.activiti.util.StringUtil;
  *
  */
 @Service
-public class CusTaskService{
+public class CusTaskService {
 	@Resource
 	private RepositoryService repositoryService;
 	@Resource
@@ -95,7 +94,6 @@ public class CusTaskService{
 			ProcessInstance processInstance = this.runtimeService.createProcessInstanceQuery()
 					.processInstanceId(processInstanceId).singleResult();
 			boolean isSuspended = processInstance.isSuspended();
-			System.out.printf("TaskServiceImpl findTodoTask processInstance:%s isSuspend:%s \n",processInstanceId,isSuspended);
 			if(isSuspended)continue;//获取激活状态下的流程实例
 
 			BaseVO base = (BaseVO) processService.getBaseVOFromRu_Variable(processInstanceId);
@@ -198,13 +196,13 @@ public class CusTaskService{
 		if (DelegationState.PENDING == task.getDelegationState()) {
 			resolveTask(taskId, variables,content);
 		}else {
-		// 设置流程的start_userId和评论人的id
-		Authentication.setAuthenticatedUserId(userId);
-		if(handleFlag != null) {
-			addComment(task, handleFlag, content);
-		}
-		completeTask(task,  taskId, variables);
-		checkAutoCompleteTask(taskId, task, variables,baseVO.getDescription());
+			// 设置流程的start_userId和评论人的id
+			Authentication.setAuthenticatedUserId(userId);
+			if(handleFlag != null) {
+				addComment(task, handleFlag, content);
+			}
+			completeTask(task,  taskId, variables);
+			checkAutoCompleteTask(taskId, task, variables,baseVO.getDescription());
 		}
 		List<String> userList = getNextNodeAssigneInfos(baseVO.getProcessInstanceId());
 		return userList;
@@ -399,23 +397,19 @@ public class CusTaskService{
 	 * @throws Exception
 	 */
 	public List<BaseVO> findDoneTask(String userId, Page<BaseVO> page) throws Exception {
-		/** 查找指定人的历史任务列表 */
-		List<HistoricTaskInstance> hTaskAssigneeList = getHistoryTaskList(userId,"assignee",page);
-		/** 查找参与者的历史任务列表 */
-		List<HistoricTaskInstance> hTaskCandidateList = getHistoryTaskList(userId,"candidate",page);
-		hTaskAssigneeList.addAll(hTaskCandidateList);
 
 		List<BaseVO> doneTaskList = new ArrayList<>();
+
+		List<HistoricTaskInstance> hTaskAssigneeList = getHistoryTaskList(userId,page);
 		for (HistoricTaskInstance historicTaskInstance : hTaskAssigneeList) {
 			String processInstanceId = historicTaskInstance.getProcessInstanceId();
 			HistoricProcessInstance historicProcessInstance = processService.getHisProcessInstanceByInstanceId(processInstanceId);
 
 			BaseVO base = null;
 			if (null != historicProcessInstance.getEndTime()) {
-				base = processService.getBaseVOFromHistoryVariable(null, historicProcessInstance, processInstanceId);
+				base = processService.getBaseVOFromHistoryVariable(processInstanceId);
 				base.setEnd(true);
 				base.setDeleteReason(historicProcessInstance.getDeleteReason());
-				//				base = processService.getBaseVOFromHistoryVariable(historicTaskInstance, null, processInstanceId);
 			}else {
 				base = processService.getBaseVOFromRu_Variable(processInstanceId);
 			}
@@ -424,6 +418,26 @@ public class CusTaskService{
 			doneTaskList.add(base);
 		}
 		return doneTaskList;
+	}
+
+	/**
+	 * 查询历史任务列表
+	 * @param userId 用户id
+	 * @param page 
+	 * @return
+	 */
+	private List<HistoricTaskInstance> getHistoryTaskList(final String userId, Page<BaseVO> page) {
+		List<HistoricTaskInstance> hTaskAssigneeList = new ArrayList<>();
+		hTaskAssigneeList = historyService.createHistoricTaskInstanceQuery().taskInvolvedUser(userId)
+				.finished().orderByHistoricTaskInstanceEndTime().desc().list();
+		if(null != page) {//分页
+			//			Integer totalSum = historyTaskQuery.list().size();
+			//			int[] pageParams = page.getPageParams(totalSum);
+			//			hTaskAssigneeList = historyTaskQuery.listPage(pageParams[0], pageParams[1]);
+			int[] pageParams = page.getPageParams(hTaskAssigneeList.size());
+			hTaskAssigneeList = hTaskAssigneeList.subList(pageParams[0], pageParams[0]+pageParams[1]);
+		}
+		return hTaskAssigneeList;
 	}
 
 	/**
@@ -457,11 +471,13 @@ public class CusTaskService{
 			handledTaskDefinitionKey = historicTaskInstance.getTaskDefinitionKey();
 			handledTaskId = historicTaskInstance.getId();
 			handledTaskName = historicTaskInstance.getName();
+
 			final String handledActivitiType = getActivitiType(base.getBusinessKey(), handledTaskDefinitionKey);
 			base.setHandledTaskDefinitionKey(handledTaskDefinitionKey);
 			base.setHandledTaskId(handledTaskId);
 			base.setHandledTaskName(handledTaskName);
 			base.setHandledActivitiType(handledActivitiType);
+
 		}else if(null != processInstance) {
 			proDefId = processInstance.getProcessDefinitionId();
 			processInstanceId = processInstance.getId();
@@ -508,6 +524,7 @@ public class CusTaskService{
 			base.setDeploymentId(process.getDeploymentId());
 		}
 	}
+
 	private String getActivitiType(String businessKey, String taskDefinitionKey) {
 		CusUserTask userTask = null;
 		try {
@@ -519,37 +536,6 @@ public class CusTaskService{
 		activitiType = StringUtil.isEmpty(activitiType) ? "N" : activitiType;
 		return activitiType;
 	}
-
-	/**
-	 * 查询历史任务列表
-	 * @param userId 用户id
-	 * @param queryType 查询类型 "assignee"：根据任务执行人查询:查找指定人的历史任务列表；<br/>
-	 * 						  "candidate":根据任务参与者查询:查找参与者的历史任务列表；
-	 * @param page 
-	 * @return
-	 */
-	private List<HistoricTaskInstance> getHistoryTaskList(final String userId,String queryType, Page<BaseVO> page) {
-		HistoricTaskInstanceQuery historyTaskQuery;
-		if("assignee".equals(queryType)) {
-			historyTaskQuery = historyService.createHistoricTaskInstanceQuery().taskAssignee(userId)
-					.finished().orderByHistoricTaskInstanceEndTime().desc();
-		}else {
-			historyTaskQuery = historyService.createHistoricTaskInstanceQuery()
-					.taskCandidateUser(userId).finished().orderByHistoricTaskInstanceEndTime().desc();
-		}
-
-		List<HistoricTaskInstance> hTaskAssigneeList = new ArrayList<>();
-		hTaskAssigneeList = historyTaskQuery.list();
-		if(null != page) {//分页
-			//			Integer totalSum = historyTaskQuery.list().size();
-			//			int[] pageParams = page.getPageParams(totalSum);
-			//			hTaskAssigneeList = historyTaskQuery.listPage(pageParams[0], pageParams[1]);
-			int[] pageParams = page.getPageParams(hTaskAssigneeList.size());
-			hTaskAssigneeList = hTaskAssigneeList.subList(pageParams[0], pageParams[0]+pageParams[1]);
-		}
-		return hTaskAssigneeList;
-	}
-
 
 	/**
 	 * 获取任务task的候选人
@@ -573,12 +559,10 @@ public class CusTaskService{
 	/**
 	 * 获取一个任务的评论
 	 * 
-	 * @param processInstanceId
-	 * @param model
+	 * @param taskId
 	 * @return
 	 * @throws Exception
 	 */
-
 	public List<CommentVO> getCommentsByTaskId(String taskId) throws Exception {
 		List<Comment> comments = this.taskService.getTaskComments(taskId);
 		List<CommentVO> commnetList = sortAndFormatComments(comments);
@@ -638,30 +622,26 @@ public class CusTaskService{
 	 * 根据任务id或流程实例id查询实体对象，如果是办结事宜，参数为流程实例id，否则为任务id
 	 */
 	public BaseVO getBaseVOByTaskIdOrProcessInstanceId(String queryId) {
-		String processInstanceId = "";
 		BaseVO base = null;
 		Task task = getTaskByTaskId(queryId);
 		if (task == null) {
-			HistoricTaskInstance historicTaskInstance = null;
-			historicTaskInstance = historyService.createHistoricTaskInstanceQuery().taskId(queryId).singleResult();
-			if (historicTaskInstance != null) {
-				processInstanceId = historicTaskInstance.getProcessInstanceId();
-
-				base = processService.getBaseVOFromHistoryVariable(historicTaskInstance, null, processInstanceId);
-				if(base != null)
+			base = processService.getBaseVOFromHistoryVariable(queryId);
+			if(base != null) {
+				HistoricTaskInstance historicTaskInstance = null;
+				historicTaskInstance = historyService.createHistoricTaskInstanceQuery().taskId(queryId).singleResult();
+				if (historicTaskInstance != null) {
 					setBaseVO(base, null,historicTaskInstance,null, null);
-			} else {
-				HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
-						.processInstanceId(queryId).singleResult();
-				base = processService.getBaseVOFromHistoryVariable(null, historicProcessInstance, queryId);
-				if(base != null) {
+				} else {
+					HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
+							.processInstanceId(queryId).singleResult();
 					setBaseVO(base,null,null,null, historicProcessInstance);
 				}
 			}
 		} else {
 			base = (BaseVO) processService.getBaseVOFromRu_Variable(task.getProcessInstanceId());
-			if (null != base) 
+			if (null != base) {
 				setBaseVO(base,task,null,null, null);
+			}
 		}
 		return base;
 	}
@@ -683,13 +663,13 @@ public class CusTaskService{
 	public void claim(String taskId, String userId,String userName,String msg,boolean hasComments,BaseVO baseVO) {
 		Authentication.setAuthenticatedUserId(userId);
 		this.taskService.claim(taskId, userId);
-		
+
 		if(hasComments) {
 			Map<String, Object> variables = new HashMap<>();
 			baseVO.setProcessStatus(BaseVO.TASK_CLAIMED);
 			baseVO.setDescription("任务已被"+userName+"认领");
 			variables.put("entity", baseVO);
-			
+
 			StringBuilder handleFlag = new StringBuilder();
 			handleFlag.append(BaseVO.TASK_CLAIMED);
 			Task task = getTaskByTaskId(taskId);
@@ -702,10 +682,10 @@ public class CusTaskService{
 	/**
 	 * 委托任务给userId，<br/>
 	 * 是将任务节点分给其他人处理，等其他人处理好之后，委派任务会自动回到委派人的任务中 <br/>
-	 * setDelegationState(DelegationState.PENDING);
-	 * task.setOwner(task.getAssignee());
-	 * task.setAssignee(userId)
-	 * 
+	 * setDelegationState(DelegationState.PENDING);<br/>
+	 * task.setOwner(task.getAssignee());<br/>
+	 * task.setAssignee(userId)<br/>
+	 * <br/>
 	 * @param taskId 被委托的任务id
 	 * @param fromUserId 委托人id
 	 * @param toUserId 被委托人id
@@ -728,10 +708,10 @@ public class CusTaskService{
 	 * 被委派人办理任务后
 	 * 正在运行的任务表中被委派人办理任务后hr的任务会回到委派人xxhr ，历史任务表中也一样<br/>
 	 * 
-	 * setDelegationState(DelegationState.RESOLVED);
-	 * setAssignee(task.getOwner());
-	 * 
-	 * 注意:taskService.resolveTask(taskId, variables)方法是将variables存到Task域中，为了保证每次获取到的实体变量都是流程最新的，
+	 * setDelegationState(DelegationState.RESOLVED);<br/>
+	 * setAssignee(task.getOwner());<br/>
+	 * <br/>
+	 * 注意:taskService.resolveTask(taskId, variables)方法是将variables存到Task域中，为了保证每次获取到的实体变量都是流程最新的，<br/>
 	 * 我们需要调用processService.setVariables(task.getProcessInstanceId(),variables);将variables存到execution中
 	 * @param taskId
 	 * @param variables
@@ -775,11 +755,11 @@ public class CusTaskService{
 	 * @return
 	 */
 	private int recall(String userId,String backToTaskId,String backToActivitiType,String backFromTaskId,String backFromActivitiType) {
-		
+
 		HistoricTaskInstance hisTaskInstanceBackTo = this.historyService.createHistoricTaskInstanceQuery().taskId(backToTaskId).singleResult();
 		HistoricTaskInstance hisTaskInstanceBackFrom = this.historyService.createHistoricTaskInstanceQuery().taskId(backFromTaskId).singleResult();
 		if(null == hisTaskInstanceBackTo || null == hisTaskInstanceBackFrom) return -1;
-		
+
 		boolean result1 = isProcessInstanceEnd(hisTaskInstanceBackTo.getProcessInstanceId());
 		if(result1) return 1; 
 		boolean result2 = isCommitTaskBy(userId, backToTaskId, hisTaskInstanceBackTo.getAssignee());
@@ -788,12 +768,17 @@ public class CusTaskService{
 		if(result3) return 3;
 
 		JdbcTemplate jdbcTemplate = ApplicationContextHandler.getBean(JdbcTemplate.class);
-		
-		
+
+
 
 		List<HistoricTaskInstance> backToHTIList = null;
 		if("M".equals(backToActivitiType)) {//多实例节点
-			backToHTIList = this.historyService.createHistoricTaskInstanceQuery().taskDefinitionKey(hisTaskInstanceBackTo.getTaskDefinitionKey()).list();
+			/*该节点有多少个实例删多少个*/
+			Object obj = processService.getHistoryVariable("nrOfInstances",hisTaskInstanceBackTo.getProcessInstanceId());
+			int members = obj == null ? 0 : (int) obj;
+
+			backToHTIList = this.historyService.createHistoricTaskInstanceQuery().taskDefinitionKey(hisTaskInstanceBackTo.getTaskDefinitionKey()).orderByTaskCreateTime().desc().list();
+			backToHTIList = backToHTIList.subList(0, members);
 		}else {
 			backToHTIList = this.historyService.createHistoricTaskInstanceQuery().taskId(backToTaskId).list();
 		}
@@ -887,6 +872,7 @@ public class CusTaskService{
 		System.out.println(definitionEntity);
 		// 取得上一步活动
 		ActivityImpl hisActivity = definitionEntity.findActivity(hisTaskInstanceBackTo.getTaskDefinitionKey());
+
 		System.out.println(hisActivity);
 
 
@@ -923,7 +909,7 @@ public class CusTaskService{
 			}
 		}
 	}
-	
+
 	/**
 	 * 重置多实例任务节点同意人数或驳回人数流程变量
 	 * @param variables

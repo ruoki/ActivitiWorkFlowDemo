@@ -23,39 +23,39 @@ import com.zr.workflow.springdemo.service.UserService;
 @RestController
 @RequestMapping("/process")
 public class ProcessControllerImpl extends ProcessController {
-//	public static final String REQUIRECONFIRMATION_PROCESS = "requireConfirmationProcess";// 需求确认流程
-//	public static final String REQUIRECONFIRMATION_MULTI_PROCESS = "requireConfirmationProcessMultiInstance";// 需求确认流程
-//	public static final String MONTHLYREPORT_PERSON_PROCESS = "monthlyreportForPersonProcess";// 周报（人力外包）
-//	public static final String MONTHLYREPORT_PROJECT_PROCESS = "monthlyreportForProjectProcess";// 周报（项目外包/行内人员）
-//	public static final String REQUIREMENTCONFIRMATION_PROCESS = "requirementConfirmProcess";// 需求确认流程
-//	public static final String REQUIREMENTSPLIT_PROCESS = "requirementSplitProcess";// 需求拆分流程
-	
+	//	public static final String REQUIRECONFIRMATION_PROCESS = "requireConfirmationProcess";// 需求确认流程
+	//	public static final String REQUIRECONFIRMATION_MULTI_PROCESS = "requireConfirmationProcessMultiInstance";// 需求确认流程
+	//	public static final String MONTHLYREPORT_PERSON_PROCESS = "monthlyreportForPersonProcess";// 周报（人力外包）
+	//	public static final String MONTHLYREPORT_PROJECT_PROCESS = "monthlyreportForProjectProcess";// 周报（项目外包/行内人员）
+	//	public static final String REQUIREMENTCONFIRMATION_PROCESS = "requirementConfirmProcess";// 需求确认流程
+	//	public static final String REQUIREMENTSPLIT_PROCESS = "requirementSplitProcess";// 需求拆分流程
+
 	@Resource
 	private UserService userService;
 
-//	@Resource
-//	private RequirementService requirementService;
-//	@Resource
-//	private MonthlyReportService monthlyReportService;
-//
-//	@Resource
-//	private WeeklyReportController reportController;
-//	@Resource
-//	private MisDemandController demandController;
-//	@Resource
-//	private WeeklyReportController reportControllder;
+	//	@Resource
+	//	private RequirementService requirementService;
+	//	@Resource
+	//	private MonthlyReportService monthlyReportService;
+	//
+	//	@Resource
+	//	private WeeklyReportController reportController;
+	//	@Resource
+	//	private MisDemandController demandController;
+	//	@Resource
+	//	private WeeklyReportController reportControllder;
 
-//	@Resource
-//	MisProjectFirstTrialController projectFirstTrialController;
+	//	@Resource
+	//	MisProjectFirstTrialController projectFirstTrialController;
 
 	public CusProcess getProcess(String processKey){
 		switch (processKey) {
-//		case MONTHLYREPORT_PERSON_PROCESS:
-//		case MONTHLYREPORT_PROJECT_PROCESS:
-//			return monthlyReportService;
-//		case REQUIREMENTCONFIRMATION_PROCESS:
-//		case REQUIREMENTSPLIT_PROCESS:
-//			return requirementService;
+		//		case MONTHLYREPORT_PERSON_PROCESS:
+		//		case MONTHLYREPORT_PROJECT_PROCESS:
+		//			return monthlyReportService;
+		//		case REQUIREMENTCONFIRMATION_PROCESS:
+		//		case REQUIREMENTSPLIT_PROCESS:
+		//			return requirementService;
 		default:
 			return null;
 		}
@@ -67,10 +67,10 @@ public class ProcessControllerImpl extends ProcessController {
 	public void handleController(HttpServletRequest request, String procDefKey,
 			JSONObject contentInfo) {
 		switch (procDefKey) {
-//		case MONTHLYREPORT_PERSON_PROCESS:
-//		case MONTHLYREPORT_PROJECT_PROCESS:
-//			reportController.saveReport(request, contentInfo.toString());
-//			break;
+		//		case MONTHLYREPORT_PERSON_PROCESS:
+		//		case MONTHLYREPORT_PROJECT_PROCESS:
+		//			reportController.saveReport(request, contentInfo.toString());
+		//			break;
 
 		}
 	}
@@ -81,13 +81,13 @@ public class ProcessControllerImpl extends ProcessController {
 	public void updateContentInfo(HttpServletRequest request, JSONObject contentInfo,
 			String processKey, boolean isAutoCompleteNextActiviti) {
 		switch (processKey) {
-//		case MONTHLYREPORT_PERSON_PROCESS:
-//		case MONTHLYREPORT_PROJECT_PROCESS:
-//			if(isAutoCompleteNextActiviti) {//归档保存周报
-//				contentInfo.put("reportStatus", "0");
-//			}
-//			reportControllder.updateReport(request, contentInfo.toString());
-//			break;
+		//		case MONTHLYREPORT_PERSON_PROCESS:
+		//		case MONTHLYREPORT_PROJECT_PROCESS:
+		//			if(isAutoCompleteNextActiviti) {//归档保存周报
+		//				contentInfo.put("reportStatus", "0");
+		//			}
+		//			reportControllder.updateReport(request, contentInfo.toString());
+		//			break;
 
 		}
 	}
@@ -101,20 +101,20 @@ public class ProcessControllerImpl extends ProcessController {
 			return;
 
 		switch (procDefKey) {
-//		case MONTHLYREPORT_PERSON_PROCESS:
-//		case MONTHLYREPORT_PROJECT_PROCESS:
-//			reportController.delete(contentInfoId);
-//			break;
-//		case REQUIREMENTCONFIRMATION_PROCESS:
-//		case REQUIREMENTSPLIT_PROCESS:
-//			demandController.deleteDemandRecord(contentInfoId);
-//			projectFirstTrialController.deleteByDemandId(contentInfoId);
-//			break;
+		//		case MONTHLYREPORT_PERSON_PROCESS:
+		//		case MONTHLYREPORT_PROJECT_PROCESS:
+		//			reportController.delete(contentInfoId);
+		//			break;
+		//		case REQUIREMENTCONFIRMATION_PROCESS:
+		//		case REQUIREMENTSPLIT_PROCESS:
+		//			demandController.deleteDemandRecord(contentInfoId);
+		//			projectFirstTrialController.deleteByDemandId(contentInfoId);
+		//			break;
 
 		}
 	}
 
-	
+
 	public String getUserNames(String userIds) {
 		String userName = "";
 		List<User> users = this.userService.findUsersByIds(userIds);

@@ -153,17 +153,17 @@ public abstract class ProcessController {
 			String businessKey = historicProcessInstance.getBusinessKey();
 			BaseVO baseVO = cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(processInstanceId);
 			if(null != baseVO) {
-			JSONObject jsonObject = baseVO.getContentInfo();
-			String contentInfoId = "";
-			if (jsonObject != null) {
-				contentInfoId = GFJsonUtil.get().getProperty(jsonObject, "contentInfoId");
-			}
-			deleteProcessInstance(processInstanceId, businessKey, contentInfoId, "",true,request);
+				JSONObject jsonObject = baseVO.getContentInfo();
+				String contentInfoId = "";
+				if (jsonObject != null) {
+					contentInfoId = GFJsonUtil.get().getProperty(jsonObject, "contentInfoId");
+				}
+				deleteProcessInstance(processInstanceId, businessKey, contentInfoId, "",true,request);
 			}
 		}
 		this.processService.deleteDeployedProcess(deploymentId);
 	}
-	
+
 
 	/**
 	 * 所有流程实例
@@ -257,10 +257,10 @@ public abstract class ProcessController {
 		try {
 			commentList = this.cusTaskService.getComments(base.getProcessInstanceId());
 			List<CommentVO> historyCommentList = base.getComments();
-			
+
 			int curCommentLength = commentList.size();
 			int hisCommentLength = historyCommentList.size();
-			
+
 			if((curCommentLength == hisCommentLength)) {//有撤回操作
 				int i = 0;
 				for (i = 0; i<commentList.size(); i++) {
@@ -401,7 +401,7 @@ public abstract class ProcessController {
 					e.printStackTrace();
 				}
 			}
-		}
+		}	
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
 	}
@@ -509,7 +509,7 @@ public abstract class ProcessController {
 	 *            reason:'',//申请理由<br/>
 	 *            candidate_ids:'',//指定下一节点执行人id<br/>
 	 *            candidate_names:'',//指定下一节点执行人name<br/>
-	 *            contentInfoId:'',//业务id，用于删除流程时删除相关的业务信息<br/>
+	 *            contentInfoId:'',//业务id，注意，放在contentInfo中，用于删除流程时删除相关的业务信息<br/>
 	 *            contentInfo:'',//与流程无关的业务信息<br/>
 	 *             }
 	 * @return
@@ -518,6 +518,7 @@ public abstract class ProcessController {
 
 		final String userId = GFJsonUtil.get().getProperty(params, "userId");
 		if(StringUtil.isEmpty(userId))return null;
+
 		BaseVO baseVO = new BaseVO();
 		final String userName = GFJsonUtil.get().getProperty(params, "userName");
 		final String workFlowTitle = GFJsonUtil.get().getProperty(params, "workFlowTitle");
@@ -534,7 +535,7 @@ public abstract class ProcessController {
 		baseVO.setCandidate_names(candidate_names);// 下一节点执行人name
 
 		if(null != contentInfo) {
-			
+
 			contentInfo.put("contentInfoId", contentInfoId);
 		}
 		baseVO.setBusinessKey(businesskey);
@@ -717,7 +718,7 @@ public abstract class ProcessController {
 	public String loadByDeployment(@RequestParam("deploymentId") String deploymentId,
 			@RequestParam("resourceType") String resourceType,HttpServletRequest request) throws Exception {
 		try {
-			// 设置页面不缓存
+
 			String processImagesRoot = getProcessImageRoot(deploymentId, request);
 			final String subFix = resourceType.equalsIgnoreCase("xml") ? ".xml":".png";
 			String processImageName = deploymentId +"_"+ DateFormatUtil.getDoDay()+subFix;
@@ -919,7 +920,7 @@ public abstract class ProcessController {
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
 	}
-	
+
 
 	/**
 	 * 返回自定义流程的实例用来初始化流程各节点的执行人<br/>
@@ -943,7 +944,7 @@ public abstract class ProcessController {
 	 * @param isAutoCompleteNextActiviti 是否自动执行下一节点（归档节点自动执行，即下一节点是否为归档节点），
 	 */
 	public abstract void updateContentInfo(HttpServletRequest request, JSONObject contentInfo, String processKey, boolean isAutoCompleteNextActiviti);
-	
+
 	/**
 	 * 删除流程或流程启动失败后需要删除的业务信息,可以为空实现
 	 * @param contentInfoId 业务唯一标识key
@@ -952,7 +953,7 @@ public abstract class ProcessController {
 	 */
 	public abstract void deleteContentInfo(String contentInfoId, String procDefKey) throws Exception;
 
-	
+
 	/**
 	 * 根据userId查找userName,存在多个用逗号分隔，用于显示下一节点接收人，必须实现
 	 * 

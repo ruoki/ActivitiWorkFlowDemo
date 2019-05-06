@@ -118,6 +118,7 @@ public class CusUserTask implements Serializable {
 	public void setGroup_name(String group_name) {
 		this.group_name = group_name;
 	}
+
 	@Override
 	public String toString() {
 		return "CusUserTask [id=" + id + ", procDefKey=" + procDefKey + ", procDefName=" + procDefName + ", taskDefKey="
@@ -125,6 +126,4 @@ public class CusUserTask implements Serializable {
 				+ ", candidate_name=" + candidate_name + ", candidate_ids=" + candidate_ids + ", group_id=" + group_id
 				+ ", group_name=" + group_name + "]";
 	}
-
-
 }
