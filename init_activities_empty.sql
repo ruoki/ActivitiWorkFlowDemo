@@ -549,3 +549,13 @@ CREATE TABLE `act_cus_user_task` (
   `GROUP_NAME` varchar(255) DEFAULT NULL COMMENT '组名称',
   PRIMARY KEY (`ID`)
 ) ENGINE=InnoDB AUTO_INCREMENT=465 DEFAULT CHARSET=utf8;
+
+
+-- ----------------------------
+-- Table structure for mis_activiti_process
+-- ----------------------------
+DROP TABLE IF EXISTS `mis_activiti_process`;
+CREATE TABLE `mis_activiti_process` (
+  `processInstanceId` varchar(64) NOT NULL COMMENT '流程实例id',
+  `current_activiti` text COMMENT '流程当前节点信息'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='当前流程节点信息表';

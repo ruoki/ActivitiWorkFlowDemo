@@ -70,7 +70,6 @@ public class ModelController {
 	 * @return
 	 */
 	@RequestMapping("/findAllModel")
-
 	public String findAllModel(HttpServletRequest request) {
 		List<Model> resultList = this.modelService.findAllModelList();
 
@@ -90,7 +89,6 @@ public class ModelController {
 	 */
 	@RequestMapping("/deleteModel")
 	public String deleteModel(String modelId) {
-
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			delete(modelId);

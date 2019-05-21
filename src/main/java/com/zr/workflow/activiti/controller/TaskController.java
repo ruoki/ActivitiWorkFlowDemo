@@ -87,29 +87,7 @@ public class TaskController {
 	}
 
 	/**
-	 * 查询待办任务 <br/>
-	 * 
-	 * select g.* from ACT_ID_GROUP g, ACT_ID_MEMBERSHIP membership where g.ID_ =
-	 * membership.GROUP_ID_ and membership.USER_ID_ = ? <br/>
-	 * 
-	 * select distinct RES.* from ACT_RU_TASK RES left join ACT_RU_IDENTITYLINK I on
-	 * I.TASK_ID_ = RES.ID_ WHERE (RES.ASSIGNEE_ = ? or (RES.ASSIGNEE_ is null and
-	 * I.TYPE_ = 'candidate' and (I.USER_ID_ = ? ))) order by RES.ID_ asc LIMIT ?
-	 * OFFSET ? <br/>
-	 * 
-	 * select distinct RES.* , P.KEY_ as ProcessDefinitionKey, P.ID_ as
-	 * ProcessDefinitionId, P.NAME_ as ProcessDefinitionName, P.VERSION_ as
-	 * ProcessDefinitionVersion, P.DEPLOYMENT_ID_ as DeploymentId from
-	 * ACT_RU_EXECUTION RES inner join ACT_RE_PROCDEF P on RES.PROC_DEF_ID_ = P.ID_
-	 * WHERE RES.PARENT_ID_ is null and RES.ID_ = ? and RES.PROC_INST_ID_ = ? and
-	 * (RES.SUSPENSION_STATE_ = 1) order by RES.ID_ asc LIMIT ? OFFSET ? <br/>
-	 * 
-	 * select * from ACT_RU_EXECUTION where ID_ = ? <br/>
-	 * select * from ACT_RU_VARIABLE where EXECUTION_ID_ = ? and NAME_= ? and
-	 * TASK_ID_ is null <br/>
-	 * select * from ACT_GE_BYTEARRAY where ID_ = ? <br/>
-	 * select distinct RES.* from ACT_RE_PROCDEF RES WHERE RES.ID_ = ? order by
-	 * RES.ID_ asc LIMIT ? OFFSET ?
+	 * 查询待办任务
 	 * 
 	 * @param page
 	 * @param rows
@@ -146,14 +124,6 @@ public class TaskController {
 
 	/**
 	 * 查看已办任务列表<br/>
-	 * select distinct RES.* from ACT_HI_TASKINST RES WHERE RES.ASSIGNEE_ = ? and
-	 * RES.END_TIME_ is not null order by RES.ID_ asc LIMIT ? OFFSET ? <br/>
-	 * select RES.* from ACT_HI_VARINST RES WHERE RES.PROC_INST_ID_ = ? order by
-	 * RES.ID_ asc LIMIT ? OFFSET ? <br/>
-	 * select * from ACT_GE_BYTEARRAY where ID_ = ? <br/>
-	 * select distinct RES.* from ACT_RU_TASK RES WHERE RES.PROC_INST_ID_ = ? order
-	 * by RES.ID_ asc LIMIT ? OFFSET ?
-	 * 
 	 * @param page
 	 * @param rows
 	 * @param userId
@@ -275,6 +245,8 @@ public class TaskController {
 	 *            taskDefinitionKey:'',//当前节点key，指定下一节点执行人时必传，不需要动态指定时不传<br/>
 	 *            contentInfo:{},//与流程无关的业务信息<br/>
 	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人<br/>
+	 *            isDelegateAutoHandle:'',//委托后是否由委托人直接执行，如果为true，被委托人完成任务后，流程流向下一节点，而非原拥有者
+	 *            isAutoComplete:'',//是否自动归档，默认自动归档，传false则不会自动归档
 	 *             }
 	 */
 	@RequestMapping("/handle")
@@ -295,6 +267,10 @@ public class TaskController {
 			String isPassStr = GFJsonUtil.get().getProperty(json, "isPass");
 			String reapplyStr = GFJsonUtil.get().getProperty(json, "reapply");
 			String isEnd = GFJsonUtil.get().getProperty(json, "end");
+			String isDelegateAutoHandleStr = GFJsonUtil.get().getProperty(json, "isDelegateAutoHandle");
+			boolean isDelegateAutoHandle = "true".equals(isDelegateAutoHandleStr) ? true : false;
+			String isAutoCompleteStr = GFJsonUtil.get().getProperty(json, "isAutoComplete");
+			boolean isAutoComplete = "false".equals(isAutoCompleteStr) ? false : true;
 			BaseVO baseVO = getBaseVO(json,taskId);
 
 			try {
@@ -307,8 +283,8 @@ public class TaskController {
 				if (StringUtil.isEmpty(condition)) {
 					checkIsEndTask(isEnd,baseVO, handleFlag, variables);
 				}
-				final String businessKey = checkUpdateNextNodeAssignees(request, baseVO, variables, condition,isChangeDataStr);
-				List<String> nextAssignes = this.cusTaskService.handleTask(taskId,userId,userName,handleFlag, content, baseVO, variables);
+				final String businessKey = checkUpdateNextNodeAssignees(request, baseVO, variables, condition,isChangeDataStr,isAutoComplete);
+				List<String> nextAssignes = this.cusTaskService.handleTask(taskId,userId,userName,handleFlag, content, baseVO, variables,isDelegateAutoHandle);
 				deleteExtraContentInfo(baseVO.getContentInfo().toString(), handleFlag, businessKey,request);
 				//多实例节点未全部通过时
 				boolean notSetPreNodeInfo = (handleFlag != null && BaseVO.APPROVAL_SUCCESS.equals(handleFlag.toString()))
@@ -364,6 +340,8 @@ public class TaskController {
 		final JSONArray comments = GFJsonUtil.get().getJSONArray(params,"comments");
 
 		BaseVO baseVO = this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
+		baseVO = null == baseVO ? new BaseVO() : baseVO;
+
 		if(StringUtil.isNotEmpty(currentTaskActivitiId)) {
 			baseVO.setTaskDefinitionKey(currentTaskActivitiId);// 当前节点key
 		}
@@ -414,13 +392,12 @@ public class TaskController {
 
 		if (StringUtil.isNotEmpty(isPassStr)) {
 			pass = isPassStr;
-			boolean isPass = "true".equals(isPassStr) ? true : false;
 			final String variableKey = "isPass" + "_" + baseVO.getTaskDefinitionKey();
 
 			variables.put(variableKey, isPassStr);
 
 			final String workFloWTitle = StringUtil.isEmpty(baseVO.getTitle()) ? "请求" : baseVO.getTitle();
-			if (!isPass) {
+			if ("false".equals(isPassStr)) {
 				setBackMembers(variables, baseVO);
 				handleFlag.append(BaseVO.APPROVAL_FAILED);
 				baseVO.setProcessStatus(BaseVO.APPROVAL_FAILED);
@@ -435,7 +412,7 @@ public class TaskController {
 
 				int agreeMembers = getAgreeMember(baseVO);
 				if ((totalMembers == 0) || ((totalMembers - agreeMembers) == 1)) {
-					String nextActivitiId = ProcessDefinitionCache.get().getNextActivitiId(baseVO,"true");
+					String nextActivitiId = ProcessDefinitionCache.get().getNextActivitiId(baseVO,isPassStr);
 					if(ProcessDefinitionCache.ARCHIVE.equals(nextActivitiId)) {//到归档前一个节点才算真正通过
 						baseVO.setDescription(baseVO.getCreateName() + " 的" + workFloWTitle + BaseVO.SUB_DESCRIPTION_PASS);
 					}else {
@@ -567,11 +544,12 @@ public class TaskController {
 	 * @param variables 流程变量
 	 * @param condition 网关的判断条件值，true或false
 	 * @param isChangeDataStr 下一节点执行人是否有改变
+	 * @param isAutoComplete 是否自动归档，默认自动归档，传false则不会自动归档
 	 * @return
 	 * @throws Exception
 	 */
 	private String checkUpdateNextNodeAssignees(HttpServletRequest request, BaseVO baseVO, Map<String, Object> variables,
-			String condition,String isChangeDataStr) throws Exception {
+			String condition,String isChangeDataStr, boolean isAutoComplete) throws Exception {
 
 		final String businessKey = baseVO.getBusinessKey();
 		final String procDefKey = businessKey.contains(":") ? businessKey.split(":")[0] : "";
@@ -580,8 +558,10 @@ public class TaskController {
 		final String description = baseVO.getDescription();
 		boolean isAutoCompleteNextActiviti = false;
 		if(ProcessDefinitionCache.ARCHIVE.equals(nextActivitiId)&& description.contains(BaseVO.SUB_DESCRIPTION_PASS)) {
-			isAutoCompleteNextActiviti = true;
-			variables.put("autoComplete", true);
+			if(isAutoComplete) {
+				isAutoCompleteNextActiviti = true;
+				variables.put("autoComplete", true);
+			}
 		}else {
 			isAutoCompleteNextActiviti = false;
 		}
@@ -636,6 +616,7 @@ public class TaskController {
 	 * 			  userName:'',//认领人名称,不能为空<br/>
 	 *            taskId:'',//任务id，不能为空<br/>
 	 *            content:'',//评论内容，可为空<br/>
+	 *            contentInfo:{},//业务内容，如果需要更新页面的业务信息，则传该参数，否则可不传<br/>
 	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人
 	 *            }
 	 * @return
@@ -674,7 +655,7 @@ public class TaskController {
 
 	/**
 	 * 委托任务给userId，<br/>
-	 * 
+	 * 委托操作不会出现在已办事项里
 	 * task.setOwner(task.getAssignee());<br/>
 	 * task.setAssignee(userId)
 	 * 
@@ -683,6 +664,7 @@ public class TaskController {
 	 *            toUserId:'',//委托的接收人id，不能为空<br/>
 	 *            taskId:'',//任务id，不能为空<br/>
 	 *            content:'',//评论内容，可为空<br/>
+	 *            contentInfo:{},//业务内容，如果需要更新页面的业务信息，则传该参数，否则可不传<br/>
 	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人
 	 *            }
 	 * 
@@ -702,6 +684,12 @@ public class TaskController {
 			boolean hasComments = GFJsonUtil.get().containsKey(json, "comments");
 			if(hasComments) {
 				BaseVO baseVO = getBaseVO(json,taskId);
+				if(BaseVO.TASK_CLAIMED.equals(baseVO.getProcessStatus())) {
+					baseVO.setProcessStatus(BaseVO.APPROVAL_SUCCESS);
+					String description = baseVO.getDescription();
+					description = description.replaceAll("认领", "审核");
+					baseVO.setDescription(description);
+				}
 				variables.put("entity", baseVO);
 			}
 
@@ -772,4 +760,7 @@ public class TaskController {
 		return resultJson;
 	}
 
+	public List<Task> getTaskByProcessInstanceId(String processInstanceId) {
+		return this.cusTaskService.getTaskByProcessInstanceId(processInstanceId);
+	}
 }

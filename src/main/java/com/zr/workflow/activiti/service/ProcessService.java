@@ -46,14 +46,11 @@ public class ProcessService{
 	private CusTaskService cusTaskService;
 
 	/**
-	 * 查询已部署的流程定义列表<br/>
-	 * select distinct RES.* from ACT_RE_PROCDEF RES order by RES.VERSION_ asc LIMIT
-	 * ? OFFSET ?
+	 * 查询已部署的流程定义列表
 	 */
-
 	public List<ProcessDefinition> findDeployedProcessList() {
 		List<ProcessDefinition> processList = repositoryService.createProcessDefinitionQuery()
-				.orderByProcessDefinitionVersion().asc()// 升序
+				.orderByProcessDefinitionVersion().desc()
 				.list();
 		return processList;
 	}
@@ -65,7 +62,6 @@ public class ProcessService{
 	 *            流程定义ID
 	 * @return
 	 */
-
 	public ProcessDefinition findProcessDefinitionById(String processDefinitionId) {
 		ProcessDefinition processDefinition = this.repositoryService.createProcessDefinitionQuery()
 				.processDefinitionId(processDefinitionId).singleResult();
@@ -75,11 +71,10 @@ public class ProcessService{
 	/**
 	 * 根据流程定义id查询已部署的流程定义对象
 	 *
-	 * @param processDefinitionId
+	 * @param processDefKey
 	 *            流程定义ID
 	 * @return
 	 */
-
 	public ProcessDefinition findProcessDefinitionByKey(String processDefKey) {
 		List<ProcessDefinition> proceDefList = this.repositoryService.createProcessDefinitionQuery()
 				.processDefinitionKey(processDefKey).orderByProcessDefinitionVersion().desc().list();
@@ -204,13 +199,6 @@ public class ProcessService{
 
 	/**
 	 * 查询已结束的流程实例<br/>
-	 * select distinct RES.* , DEF.KEY_ as PROC_DEF_KEY_, DEF.NAME_ as
-	 * PROC_DEF_NAME_, DEF.VERSION_ as PROC_DEF_VERSION_, DEF.DEPLOYMENT_ID_ as
-	 * DEPLOYMENT_ID_ from ACT_HI_PROCINST RES left outer join ACT_RE_PROCDEF DEF on
-	 * RES.PROC_DEF_ID_ = DEF.ID_ WHERE RES.END_TIME_ is not NULL and (
-	 * exists(select LINK.USER_ID_ from ACT_HI_IDENTITYLINK LINK where USER_ID_ = ?
-	 * and LINK.PROC_INST_ID_ = RES.ID_) ) order by RES.ID_ asc LIMIT ? OFFSET ?
-	 * 
 	 * @return
 	 */
 	public List<BaseVO> findFinishedProcessInstances(Page<BaseVO> page, String userCode, boolean isInvolved) {
@@ -330,10 +318,6 @@ public class ProcessService{
 
 	/**
 	 * 获取当前流程下的key为entity的variable<br/>
-	 * select * from ACT_RU_EXECUTION where ID_ = ?<br/>
-	 * select * from ACT_RU_VARIABLE where EXECUTION_ID_ = ? and NAME_= ? and
-	 * TASK_ID_ is null<br/>
-	 * select * from ACT_GE_BYTEARRAY where ID_ = ?<br/>
 	 */
 	public BaseVO getBaseVOFromRu_Variable(String processInstanceId) {
 		BaseVO base = (BaseVO) getRunVariable("entity", processInstanceId);
@@ -383,9 +367,6 @@ public class ProcessService{
 
 	/**
 	 * 获取历史流程变量
-	 * select RES.* from ACT_HI_VARINST RES WHERE RES.PROC_INST_ID_ = ? order by
-	 * RES.ID_ asc LIMIT ? OFFSET ?<br/>
-	 * select * from ACT_GE_BYTEARRAY where ID_ = ? <br/>
 	 * @param variableKey
 	 * @param processInstanceId
 	 * @return
@@ -454,12 +435,7 @@ public class ProcessService{
 	}
 
 	/**
-	 * 获取流程图像，已执行节点和流程线高亮显示<br/>
-	 * select distinct RES.* , DEF.KEY_ as PROC_DEF_KEY_, DEF.NAME_ as
-	 * PROC_DEF_NAME_, DEF.VERSION_ as PROC_DEF_VERSION_, DEF.DEPLOYMENT_ID_ as
-	 * DEPLOYMENT_ID_ from ACT_HI_PROCINST RES left outer join ACT_RE_PROCDEF DEF on
-	 * RES.PROC_DEF_ID_ = DEF.ID_ WHERE RES.PROC_INST_ID_ = ? order by RES.ID_ asc
-	 * LIMIT ? OFFSET ?
+	 * 获取流程图像，已执行节点和流程线高亮显示
 	 */
 	public InputStream getActivitiProccessImage(String processInstanceId) throws Exception {
 		System.out.println("[开始]-获取流程图图像 processInstanceId：" + processInstanceId);

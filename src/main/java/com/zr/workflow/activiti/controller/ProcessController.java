@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -58,28 +56,46 @@ public abstract class ProcessController {
 	private CusUserTaskService userTaskService;
 
 	/**
-	 * 查询已部署的流程定义列表
+	 * 查询已部署的流程列表
+	 * 非最新版本的"deprecated"为true
 	 * 
 	 * @return
 	 */
 	@RequestMapping("/findDeployedProcessList")
 	public String findDeployedProcessList(HttpServletRequest request) {
 		List<ProcessDefinition> list = processService.findDeployedProcessList();
-		// 定义有序map，相同的key,添加map值后，后面的会覆盖前面的值
-		Map<String, ProcessDefinition> map = new LinkedHashMap<String, ProcessDefinition>();
-		// 遍历相同的key，替换最新的值
-		for (ProcessDefinition pd : list) {
-			map.put(pd.getKey(), pd);
-		}
-
-		List<ProcessDefinition> linkedList = new LinkedList<ProcessDefinition>(map.values());
+		//		// 定义有序map，相同的key,添加map值后，后面的会覆盖前面的值
+		//		Map<String, ProcessDefinition> map = new LinkedHashMap<String, ProcessDefinition>();
+		//		// 遍历相同的key，替换最新的值
+		//		for (ProcessDefinition pd : list) {
+		//			map.put(pd.getKey(), pd);
+		//		}
+		//
+		//		List<ProcessDefinition> linkedList = new LinkedList<ProcessDefinition>(map.values());
+		Map<String, Integer> map = new HashMap<String, Integer>();
 		List<Map<String, Object>> processList = new ArrayList<>();
-		for (ProcessDefinition pd : linkedList) {
+		int i = 0;
+		for (ProcessDefinition pd : list) {
 			Map<String, Object> map2 = new HashMap<>();
+
+			final String processKey = pd.getKey();
+			if(map.containsKey(processKey)) {
+				int index = map.get(processKey);
+				int versionOld = (int) processList.get(index).get("version");
+				int versionNew = pd.getVersion();
+				if(versionNew > versionOld) {
+					processList.get(index).put("deprecated", true);
+				}else {
+					map2.put("deprecated", true);
+				}
+			}else {
+				map.put(processKey, i);
+			}
+
 			map2.put("id", pd.getId());
 			map2.put("category", pd.getCategory());
 			map2.put("name", pd.getName());
-			map2.put("key", pd.getKey());
+			map2.put("key", processKey);
 			map2.put("version", pd.getVersion());
 			map2.put("description", pd.getDescription());
 			map2.put("resourceName", pd.getResourceName());
@@ -87,6 +103,7 @@ public abstract class ProcessController {
 			map2.put("suspended", pd.isSuspended());
 			map2.put("diagramResourceName", pd.getDiagramResourceName());
 			processList.add(map2);
+			i++;
 		}
 
 		Map<String, Object> resultMap = new HashMap<>();
@@ -244,8 +261,10 @@ public abstract class ProcessController {
 		if (description.contains(userName)) {
 			description = description.replaceAll(userName, "您");
 		}
-		final String contentInfo = base.getContentInfo().toString();
-		base.setContentInfo(GFJsonUtil.get().parseJson(contentInfo,JSONObject.class));
+		final String contentInfo = null == base.getContentInfo()?"":base.getContentInfo().toString();
+		if(StringUtil.isNotEmpty(contentInfo)) {
+			base.setContentInfo(GFJsonUtil.get().parseJson(contentInfo,JSONObject.class));
+		}
 		base.setDescription(description);
 		List<CommentVO> commentList = getCommentList(base);
 		base.setComments(commentList);

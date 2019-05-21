@@ -64,15 +64,6 @@ public class CusTaskService {
 	private ProcessService processService;
 
 	/**
-	 * 根据流程实例查询待办任务,可能是多实例的会签点，可能有多个任务
-	 */
-
-	public List<Task> findRunTaskByProcInstanceId(String proInstanceId) {
-		List<Task> taskList = this.taskService.createTaskQuery().processInstanceId(proInstanceId).list();
-		return taskList;
-	}
-
-	/**
 	 * 查询待办任务
 	 * 
 	 * @param userId
@@ -115,8 +106,7 @@ public class CusTaskService {
 	 * @throws Exception
 	 */
 	public List<String> excuteFirstTask(String instanceId, String isPass,BaseVO baseVO, Map<String, Object> variables) throws Exception {
-		Task task = taskService.createTaskQuery()// 查询出本流程实例中当前仅有的一个任务“提交申请”
-				.processInstanceId(instanceId).singleResult();
+		Task task = getTaskByProcessInstanceId(instanceId).get(0);
 		baseVO.setTaskDefinitionKey(task.getTaskDefinitionKey());
 
 		StringBuilder handleFlag = new StringBuilder();
@@ -134,7 +124,7 @@ public class CusTaskService {
 			//			variables.put("autoComplete", true);//如果下一节点执行人为空，则直接通过
 		}
 		baseVO.setComments(commentList);
-		List<String> userList = handleTask(task.getId(),baseVO.getCreateId(),baseVO.getCreateName(),handleFlag, "发起申请", baseVO, variables);
+		List<String> userList = handleTask(task.getId(),baseVO.getCreateId(),baseVO.getCreateName(),handleFlag, "发起申请", baseVO, variables,false);
 		return userList;
 	}
 
@@ -173,7 +163,7 @@ public class CusTaskService {
 	 * @return 
 	 */
 	public List<String> handleTask(String taskId,String userId,String userName,StringBuilder handleFlag, String content, BaseVO baseVO,
-			Map<String, Object> variables) {
+			Map<String, Object> variables, boolean isDelegateAutoHandle) {
 		Task task = getTaskByTaskId(taskId);
 
 		//多实例节点未全部通过时不保存上一个节点信息
@@ -187,7 +177,7 @@ public class CusTaskService {
 			baseVO.setHandledTaskName(task.getName());
 			final String handledActivitiType = getActivitiType(baseVO.getBusinessKey(), task.getTaskDefinitionKey());
 			baseVO.setHandledActivitiType(handledActivitiType);
-			if (DelegationState.PENDING == task.getDelegationState()) {
+			if (DelegationState.PENDING == task.getDelegationState() && !isDelegateAutoHandle) {
 				baseVO.setDescription(userName+"已完成委托的任务");
 			}
 		}
@@ -195,6 +185,10 @@ public class CusTaskService {
 
 		if (DelegationState.PENDING == task.getDelegationState()) {
 			resolveTask(taskId, variables,content);
+			if(isDelegateAutoHandle) {
+				completeTask(task,  taskId, variables);
+				checkAutoCompleteTask(taskId, task, variables,baseVO.getDescription());
+			}
 		}else {
 			// 设置流程的start_userId和评论人的id
 			Authentication.setAuthenticatedUserId(userId);
@@ -208,6 +202,23 @@ public class CusTaskService {
 		return userList;
 	}
 
+
+	/**
+	 * 根据流程实例查询待办任务,可能是多实例的会签点，可能有多个任务
+	 * @param instanceId
+	 * @return
+	 */
+	public List<Task> getTaskByProcessInstanceId(String instanceId) {
+		List<Task> taskList = taskService.createTaskQuery().processInstanceId(instanceId).list();
+		return taskList;
+	}
+
+	/**
+	 * 根据任务id获取task
+	 * 
+	 * @param taskId
+	 * @return
+	 */
 	public Task getTaskByTaskId(String taskId) {
 		Task task = this.taskService.createTaskQuery().taskId(taskId).singleResult();
 		return task;
@@ -220,7 +231,7 @@ public class CusTaskService {
 	 */
 	private List<String> getNextNodeAssigneInfos(String processInstanceId) {
 		List<String> userList = new ArrayList<>();
-		List<Task> toDotaskList = findRunTaskByProcInstanceId(processInstanceId);// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
+		List<Task> toDotaskList = getTaskByProcessInstanceId(processInstanceId);// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
 		if (null != toDotaskList && toDotaskList.size() > 0) {
 			final String userIdsStr = getCandidateIdsOfTask(toDotaskList);
 			String[] userIds = new String[1];
@@ -268,7 +279,7 @@ public class CusTaskService {
 					.processInstanceId(processInstanceId).list();
 			if(tasks.size() > 1 )autoComplete = false;
 			Task task = tasks.get(0);
-			if (autoComplete || (ProcessDefinitionCache.ARCHIVE.equals(task.getTaskDefinitionKey()) && description.contains(BaseVO.SUB_DESCRIPTION_PASS))) {
+			if (autoComplete/* || (ProcessDefinitionCache.ARCHIVE.equals(task.getTaskDefinitionKey()) && description.contains(BaseVO.SUB_DESCRIPTION_PASS))*/) {
 				String nextTaskId = task.getId();
 				variables.put("autoComplete", false);
 				if (!preTaskId.equals(nextTaskId)) {
@@ -486,7 +497,7 @@ public class CusTaskService {
 			processInstanceId = historicProcessInstance.getId();
 		}
 		String userIds = "";
-		List<Task> toDotaskList = findRunTaskByProcInstanceId(processInstanceId);// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
+		List<Task> toDotaskList = getTaskByProcessInstanceId(processInstanceId);// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
 		if (null != toDotaskList && toDotaskList.size() > 0) {// 指定为空的情况下，表明该节点为会签节点，直接显示其候选组名
 			if(null == task) {
 				task = toDotaskList.get(0);
@@ -510,9 +521,7 @@ public class CusTaskService {
 			base.setToHandleTaskId(task.getId());
 			base.setSuspended(task.isSuspended());
 			final DelegationState processStatus = task.getDelegationState();
-			if(null != processStatus) {
-				base.setDelegationState(processStatus.toString());
-			}
+			base.setDelegationState(null == processStatus ? "" : processStatus.toString());
 		}
 		base.setTaskStartTime(taskStartTime);
 		ProcessDefinition process = processService.findProcessDefinitionById(proDefId);
@@ -658,11 +667,14 @@ public class CusTaskService {
 	 * @param msg 意见
 	 * @param hasComments 是否加入评论列表
 	 * @param baseVO 流程实体类
+	 * @throws Exception 
 	 */
 
-	public void claim(String taskId, String userId,String userName,String msg,boolean hasComments,BaseVO baseVO) {
+	public void claim(String taskId, String userId,String userName,String msg,boolean hasComments,BaseVO baseVO) throws Exception {
 		Authentication.setAuthenticatedUserId(userId);
 		this.taskService.claim(taskId, userId);
+		//设置当前任务的拥有者，因为在转发任务后，再认领，再执行任务时会先执行被委托完成操作，task会执行setAssignee(task.getOwner());
+		this.taskService.setOwner(taskId, userId);
 
 		if(hasComments) {
 			Map<String, Object> variables = new HashMap<>();
@@ -676,6 +688,9 @@ public class CusTaskService {
 			addComment(task,handleFlag,msg);
 			this.processService.setVariables(task.getProcessInstanceId(),variables);
 		}
+		baseVO.setCandidate_ids(userId);
+		baseVO.setCandidate_names(userName);
+		userTaskService.updateUserTaskAssignee(baseVO, false, baseVO.getTaskDefinitionKey());
 	}
 
 

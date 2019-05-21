@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zr.workflow.springdemo.dao.MisActivitiProcessDao">
+	<resultMap type="HashMap" id="BaseHashMap">
+    	<result property="processInstanceId" column="processInstanceId" />
+    	<result property="currentActiviti" column="current_activiti" />
+    </resultMap>
+	<select id="getCurrentActiviti" resultMap="BaseHashMap" parameterType="String">
+		SELECT * FROM mis_activiti_process WHERE processInstanceId=#{processInstanceId} 
+	</select>
+	
+	<delete id="deleteActiviti" parameterType="String">
+		DELETE FROM mis_activiti_process WHERE processInstanceId=#{processInstanceId} 
+	</delete>
+	
+	<insert id="saveCurrentActiviti" parameterType="String">
+	  INSERT INTO mis_activiti_process 
+	  (processInstanceId,current_activiti)
+	  VALUES 
+	  (#{processInstanceId},#{json})
+	</insert>
+</mapper>

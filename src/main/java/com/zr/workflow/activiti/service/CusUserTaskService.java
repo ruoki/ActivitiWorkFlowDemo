@@ -227,7 +227,12 @@ public class CusUserTaskService {
 
 		String candidateIds = baseVO.getCandidate_ids();
 		String candidateNames = baseVO.getCandidate_names();
-
+		if(candidateIds.startsWith(",")) {
+			candidateIds = candidateIds.substring(1);
+		}
+		if(candidateNames.startsWith(",")) {
+			candidateNames = candidateNames.substring(1);
+		}
 		cusUserTask.setCandidate_ids(candidateIds);
 		cusUserTask.setCandidate_name(candidateNames);
 		//baseVO中的candidate_ids设置过一个节点后不让再给第二个节点
@@ -248,7 +253,6 @@ public class CusUserTaskService {
 	public void updateNextCusUserTaskInfo(BaseVO baseVO, String condition,boolean isChangeData,CusProcess cusProcess) throws Exception {
 		this.cusProcess = cusProcess;
 		String nextTaskDefKey = ProcessDefinitionCache.get().getNextActivitiId(baseVO,condition);
-
 		updateUserTaskAssignee(baseVO, isChangeData, nextTaskDefKey);
 	}
 

@@ -27,6 +27,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 public class ModelService{
+	private static final String DEFAULT_MODEL_KEY = "12313123";
+	private static final String DEFAULT_MODEL_NAME = "lutiannan";
+	private static final String DEFAULT_MODEL_DESCRIPTION = "lutiannan---";
 
 	@Resource
 	private RepositoryService repositoryService;
@@ -42,13 +45,12 @@ public class ModelService{
 		Model modelData = repositoryService.newModel();
 
 		ObjectNode modelObjectNode = objectMapper.createObjectNode();
-		modelObjectNode.put(ModelDataJsonConstants.MODEL_NAME, "lutiannan");
+		modelObjectNode.put(ModelDataJsonConstants.MODEL_NAME, DEFAULT_MODEL_NAME);
 		modelObjectNode.put(ModelDataJsonConstants.MODEL_REVISION, 1);
-		String description = "lutiannan---";
-		modelObjectNode.put(ModelDataJsonConstants.MODEL_DESCRIPTION, description);
+		modelObjectNode.put(ModelDataJsonConstants.MODEL_DESCRIPTION, DEFAULT_MODEL_DESCRIPTION);
 		modelData.setMetaInfo(modelObjectNode.toString());
-		modelData.setName("lutiannan");
-		modelData.setKey("12313123");
+		modelData.setName(DEFAULT_MODEL_NAME);
+		modelData.setKey(DEFAULT_MODEL_KEY);
 
 		//保存模型
 		repositoryService.saveModel(modelData);
@@ -58,6 +60,14 @@ public class ModelService{
 
 	public List<Model> findAllModelList() {
 		List<Model> resultList =  repositoryService.createModelQuery().orderByCreateTime().desc().list();
+
+		for (int i = 0; i < resultList.size(); i++) {
+			Model item = resultList.get(i);
+			if (item.getKey().equals(DEFAULT_MODEL_KEY)) {
+	        	delete(item.getId());
+	        	resultList.remove(i);
+	        }
+		}
 		return resultList;
 	}
 
@@ -73,7 +83,7 @@ public class ModelService{
 		bpmnBytes = new BpmnXMLConverter().convertToXML(model);
 		String resourceName = modelData.getName();
 		String processName = resourceName + ".bpmn20.xml";
-		Deployment deployment = repositoryService.createDeployment().enableDuplicateFiltering().name(resourceName).name(resourceName).addString(processName, new String(bpmnBytes,"utf-8")).deploy();
+		Deployment deployment = repositoryService.createDeployment().enableDuplicateFiltering().name(resourceName).addString(processName, new String(bpmnBytes,"utf-8")).deploy();
 		return deployment;
 	}
 
