@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -50,9 +52,25 @@ public class ProcessService{
 	 */
 	public List<ProcessDefinition> findDeployedProcessList() {
 		List<ProcessDefinition> processList = repositoryService.createProcessDefinitionQuery()
-				.orderByProcessDefinitionVersion().desc()
+				.orderByProcessDefinitionVersion().asc()
 				.list();
 		return processList;
+	}
+	
+	/**
+	 * 查询已部署的最新版本（该版本指的是流程模型的版本）流程定义列表
+	 */
+	public List<ProcessDefinition> findLastetDeployedProcessList() {
+		List<ProcessDefinition> list = findDeployedProcessList();
+		// 定义有序map，相同的key,添加map值后，后面的会覆盖前面的值
+		Map<String, ProcessDefinition> map = new LinkedHashMap<String, ProcessDefinition>();
+		// 遍历相同的key，替换最新的值
+		for (ProcessDefinition pd : list) {
+			map.put(pd.getKey(), pd);
+		}
+		List<ProcessDefinition> linkedList = new LinkedList<ProcessDefinition>(map.values());
+		
+		return linkedList;
 	}
 
 	/**
@@ -78,7 +96,7 @@ public class ProcessService{
 	public ProcessDefinition findProcessDefinitionByKey(String processDefKey) {
 		List<ProcessDefinition> proceDefList = this.repositoryService.createProcessDefinitionQuery()
 				.processDefinitionKey(processDefKey).orderByProcessDefinitionVersion().desc().list();
-		ProcessDefinition processDefinition = proceDefList.get(0);
+		ProcessDefinition processDefinition = null == proceDefList || proceDefList.size() < 1 ? null : proceDefList.get(0);
 		return processDefinition;
 	}
 

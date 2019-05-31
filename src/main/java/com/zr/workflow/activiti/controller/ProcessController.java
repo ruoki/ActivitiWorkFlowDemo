@@ -63,39 +63,14 @@ public abstract class ProcessController {
 	 */
 	@RequestMapping("/findDeployedProcessList")
 	public String findDeployedProcessList(HttpServletRequest request) {
-		List<ProcessDefinition> list = processService.findDeployedProcessList();
-		//		// 定义有序map，相同的key,添加map值后，后面的会覆盖前面的值
-		//		Map<String, ProcessDefinition> map = new LinkedHashMap<String, ProcessDefinition>();
-		//		// 遍历相同的key，替换最新的值
-		//		for (ProcessDefinition pd : list) {
-		//			map.put(pd.getKey(), pd);
-		//		}
-		//
-		//		List<ProcessDefinition> linkedList = new LinkedList<ProcessDefinition>(map.values());
-		Map<String, Integer> map = new HashMap<String, Integer>();
 		List<Map<String, Object>> processList = new ArrayList<>();
-		int i = 0;
-		for (ProcessDefinition pd : list) {
+		List<ProcessDefinition> linkedList = processService.findLastetDeployedProcessList();
+		for (ProcessDefinition pd : linkedList) {
 			Map<String, Object> map2 = new HashMap<>();
-
-			final String processKey = pd.getKey();
-			if(map.containsKey(processKey)) {
-				int index = map.get(processKey);
-				int versionOld = (int) processList.get(index).get("version");
-				int versionNew = pd.getVersion();
-				if(versionNew > versionOld) {
-					processList.get(index).put("deprecated", true);
-				}else {
-					map2.put("deprecated", true);
-				}
-			}else {
-				map.put(processKey, i);
-			}
-
 			map2.put("id", pd.getId());
 			map2.put("category", pd.getCategory());
 			map2.put("name", pd.getName());
-			map2.put("key", processKey);
+			map2.put("key", pd.getKey());
 			map2.put("version", pd.getVersion());
 			map2.put("description", pd.getDescription());
 			map2.put("resourceName", pd.getResourceName());
@@ -103,8 +78,43 @@ public abstract class ProcessController {
 			map2.put("suspended", pd.isSuspended());
 			map2.put("diagramResourceName", pd.getDiagramResourceName());
 			processList.add(map2);
-			i++;
 		}
+		
+		/*亦显示旧版本-start*/
+//		Map<String, Integer> map = new HashMap<String, Integer>();
+//		int i = 0;
+//		for (ProcessDefinition pd : list) {
+//			Map<String, Object> map2 = new HashMap<>();
+//
+//			final String processKey = pd.getKey();
+//			if(map.containsKey(processKey)) {
+//				int index = map.get(processKey);
+//				int versionOld = (int) processList.get(index).get("version");
+//				int versionNew = pd.getVersion();
+//				if(versionNew > versionOld) {
+//					processList.get(index).put("deprecated", true);
+//				}else {
+//					map2.put("deprecated", true);
+//				}
+//			}else {
+//				map.put(processKey, i);
+//			}
+//
+//			map2.put("id", pd.getId());
+//			map2.put("category", pd.getCategory());
+//			map2.put("name", pd.getName());
+//			map2.put("key", processKey);
+//			map2.put("version", pd.getVersion());
+//			map2.put("description", pd.getDescription());
+//			map2.put("resourceName", pd.getResourceName());
+//			map2.put("deploymentId", pd.getDeploymentId());
+//			map2.put("suspended", pd.isSuspended());
+//			map2.put("diagramResourceName", pd.getDiagramResourceName());
+//			processList.add(map2);
+//			i++;
+//		}
+		/*亦显示旧版本-end*/
+		
 
 		Map<String, Object> resultMap = new HashMap<>();
 		resultMap.put("data", processList);
