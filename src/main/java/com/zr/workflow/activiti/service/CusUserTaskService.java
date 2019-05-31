@@ -55,7 +55,7 @@ public class CusUserTaskService {
 	 */
 	public void initProcessUserTaskInfo(BaseVO baseVO,CusProcess cusProcess) throws Exception {
 		this.cusProcess = cusProcess;
-		List<ProcessDefinition> processDefinitionList = processService.findDeployedProcessList();
+		List<ProcessDefinition> processDefinitionList = processService.findLastetDeployedProcessList();
 		for (ProcessDefinition processDefinition : processDefinitionList) {
 			final String businessKey = baseVO.getBusinessKey();// 设置业务key
 			final String procDefKey = businessKey.contains(":") ? businessKey.split(":")[0] : "";
@@ -170,7 +170,8 @@ public class CusUserTaskService {
 
 	public void setUserTaskAssgine(BaseVO baseVO, CusUserTask cusUserTask, String assigneeExpression) throws Exception {
 		final String activitiType = cusUserTask.getActivityType();
-		if(CusUserTask.TYPE_NORMAL.equals(activitiType)){
+		String user_id = baseVO.getCandidate_ids();
+		if(StringUtil.isNotEmpty(assigneeExpression) && assigneeExpression.contains("applyuserid") || (CusUserTask.TYPE_NORMAL.equals(activitiType) && !user_id.contains(","))){
 			setAssignee(cusUserTask,  baseVO,assigneeExpression);
 		} else  {
 			setCandidateUsers(baseVO, cusUserTask);
@@ -281,10 +282,10 @@ public class CusUserTaskService {
 		}else {
 			if(!StringUtil.isEmpty(candidate_ids)) {
 				String taskType = cusUserTask.getTaskType();
-				if (CusUserTask.TYPE_ASSIGNEE.equals(taskType)) {// 普通用户节点
-					cusUserTask.setCandidate_ids(candidate_ids);
-					cusUserTask.setCandidate_name(candidate_names);
-				} else if (CusUserTask.TYPE_CANDIDATEUSER.equals(taskType)) {// 多实例用户节点
+				if (CusUserTask.TYPE_ASSIGNEE.equals(taskType) || CusUserTask.TYPE_CANDIDATEUSER.equals(taskType)) {
+					if(candidate_ids.contains(",")) {
+						cusUserTask.setTaskType(CusUserTask.TYPE_CANDIDATEUSER);
+					}
 					cusUserTask.setCandidate_ids(candidate_ids);
 					cusUserTask.setCandidate_name(candidate_names);
 				}else {
