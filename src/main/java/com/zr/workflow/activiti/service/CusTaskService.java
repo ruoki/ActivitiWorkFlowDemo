@@ -68,10 +68,16 @@ public class CusTaskService {
 	 * 
 	 * @param userId
 	 * @param page
+	 * @param processDefKeys 
 	 * @return
 	 */
-	public List<BaseVO> findTodoTask(String userId, Page<BaseVO> page) {
-		TaskQuery taskQuery = this.taskService.createTaskQuery().taskCandidateOrAssigned(userId).orderByTaskCreateTime().desc();
+	public List<BaseVO> findTodoTask(String userId, Page<BaseVO> page,List<String> processDefKeys) {
+		TaskQuery taskQuery = null;
+		if(null == processDefKeys || processDefKeys.size() == 0) {
+			taskQuery = this.taskService.createTaskQuery().taskCandidateOrAssigned(userId).orderByTaskCreateTime().desc();
+		}else {
+			taskQuery = this.taskService.createTaskQuery().taskCandidateOrAssigned(userId).processDefinitionKeyIn(processDefKeys).orderByTaskCreateTime().desc();
+		}
 		List<Task> tasks = new ArrayList<>();
 		tasks = taskQuery.list();
 		if(null != page) {//分页
@@ -404,14 +410,16 @@ public class CusTaskService {
 	 * 
 	 * @param userId
 	 * @param model
+	 * @param dataType 数据类型:默认获取所有的已办事宜，"lastet":获取最新的已办事宜 
+	 * @param processDefKeys 
 	 * @return
 	 * @throws Exception
 	 */
-	public List<BaseVO> findDoneTask(String userId, Page<BaseVO> page) throws Exception {
+	public List<BaseVO> findDoneTask(String userId, Page<BaseVO> page,String dataType, List<String> processDefKeys) throws Exception {
 
 		List<BaseVO> doneTaskList = new ArrayList<>();
 
-		List<HistoricTaskInstance> hTaskAssigneeList = getHistoryTaskList(userId,page);
+		List<HistoricTaskInstance> hTaskAssigneeList = getHistoryTaskList(userId,page,dataType,processDefKeys);
 		for (HistoricTaskInstance historicTaskInstance : hTaskAssigneeList) {
 			String processInstanceId = historicTaskInstance.getProcessInstanceId();
 			HistoricProcessInstance historicProcessInstance = processService.getHisProcessInstanceByInstanceId(processInstanceId);
@@ -435,12 +443,17 @@ public class CusTaskService {
 	 * 查询历史任务列表
 	 * @param userId 用户id
 	 * @param page 
+	 * @param dataType 数据类型:默认获取所有的已办事宜，"lastet":获取最新的已办事宜 
+	 * @param processDefKeys 
 	 * @return
 	 */
-	private List<HistoricTaskInstance> getHistoryTaskList(final String userId, Page<BaseVO> page) {
+	private List<HistoricTaskInstance> getHistoryTaskList(final String userId, Page<BaseVO> page,String dataType, List<String> processDefKeys) {
 		List<HistoricTaskInstance> hTaskAssigneeList = new ArrayList<>();
-		hTaskAssigneeList = historyService.createHistoricTaskInstanceQuery().taskInvolvedUser(userId)
-				.finished().orderByHistoricTaskInstanceEndTime().desc().list();
+		
+		hTaskAssigneeList = getAllHisTaskListByInvolvedUser(userId,processDefKeys);
+		if(StringUtil.isNotEmpty(dataType)) {
+			hTaskAssigneeList = getLastetHisTaskListByInvolvedUser(hTaskAssigneeList);
+		}
 		if(null != page) {//分页
 			//			Integer totalSum = historyTaskQuery.list().size();
 			//			int[] pageParams = page.getPageParams(totalSum);
@@ -450,6 +463,46 @@ public class CusTaskService {
 		}
 		return hTaskAssigneeList;
 	}
+
+	/**
+	 * 获取参与者的所有已办事宜
+	 * @param userId
+	 * @param processDefKeys 
+	 * @return
+	 */
+	private List<HistoricTaskInstance> getAllHisTaskListByInvolvedUser(final String userId, List<String> processDefKeys) {
+		List<HistoricTaskInstance> hTaskAssigneeList;
+		if(null == processDefKeys || processDefKeys.size() == 0) {
+			hTaskAssigneeList = historyService.createHistoricTaskInstanceQuery().taskInvolvedUser(userId)
+					.finished().orderByHistoricTaskInstanceEndTime().desc().list();
+		}else {
+			hTaskAssigneeList = historyService.createHistoricTaskInstanceQuery().taskInvolvedUser(userId)
+					.finished().processDefinitionKeyIn(processDefKeys).orderByHistoricTaskInstanceEndTime().desc().list();
+		}
+		return hTaskAssigneeList;
+	}
+
+	/**
+	 * 获取参与者每条流程的最新已办事宜
+	 * @param userId
+	 * @param processDefKeys 
+	 * @return
+	 */
+	private List<HistoricTaskInstance> getLastetHisTaskListByInvolvedUser(List<HistoricTaskInstance> hTaskAssigneeList) {
+		hTaskAssigneeList = removeDuplicate(hTaskAssigneeList);
+		return hTaskAssigneeList;
+	}
+
+	public List<HistoricTaskInstance> removeDuplicate(List<HistoricTaskInstance> list){       
+		for (int i = 0 ; i < list.size() - 1; i++){
+			for (int j = list.size() - 1 ; j>i; j--){
+				if (list.get(j).getProcessInstanceId().equals(list.get(i).getProcessInstanceId())){
+					list.remove(j);
+				}
+			}
+		}
+		return list;
+	}  
 
 	/**
 	 * 填充实体类

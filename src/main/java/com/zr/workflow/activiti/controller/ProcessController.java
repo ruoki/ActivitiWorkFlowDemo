@@ -195,22 +195,26 @@ public abstract class ProcessController {
 	/**
 	 * 所有流程实例
 	 * 
-	 * @param page
-	 * @param rows
-	 * @param userId
-	 * @param userName
+	 * @param page 当前第几页,非必输
+	 * @param rows 每页显示数据数,非必输
+	 * @param processDefKeys 指定流程定义ids,非必输
+	 * @param userId 用户id,必输
+	 * @param userName 用户名,必输
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/findAllProcess")
 	public String findAllProcess(@RequestParam(value = "page", required = false) Integer page,
-			@RequestParam(value = "rows", required = false) Integer rows, HttpServletRequest request,
+			@RequestParam(value = "rows", required = false) Integer rows,
+			@RequestParam(value = "processDefKeys", required = false) String processDefKeys,
+			HttpServletRequest request,
 			@RequestParam("userId") String userId,@RequestParam("userName") String userName) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			Page<BaseVO> p = initPage(page, rows);
-			List<BaseVO> processList = this.processService.findAllProcessInstances(p);
+			List<String> processDefKeyList = getProcessDefKeysFromJson(processDefKeys);
+			List<BaseVO> processList = this.processService.findAllProcessInstances(p,processDefKeyList);
 
 			for (BaseVO base : processList) {
 				generateBaseVO(base, userId,userName);
@@ -227,6 +231,17 @@ public abstract class ProcessController {
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
 	}
+	
+
+	public List<String> getProcessDefKeysFromJson(String processDefKeys) {
+		List<String> processDefKeyList = new ArrayList<>();
+		if(StringUtil.isNotEmpty(processDefKeys)) {
+			JSONArray jsonArray = GFJsonUtil.get().parseArray(processDefKeys);
+			processDefKeyList = jsonArray.toJavaList(String.class);
+		}
+		return processDefKeyList;
+	}
+
 
 	/**
 	 * 初始化分页

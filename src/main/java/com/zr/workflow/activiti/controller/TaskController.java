@@ -53,22 +53,27 @@ public class TaskController {
 	/**
 	 * 我的请求
 	 * 
-	 * @param page
-	 * @param rows
-	 * @param userId
-	 * @param userName
+	 * @param page 当前第几页,非必输
+	 * @param rows 每页显示数据数,非必输
+	 * @param processDefKeys 指定流程定义ids,非必输
+	 * @param userId 用户id,必输
+	 * @param userName 用户名,必输
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/myAllProcess")
 	public String myAllProcess(@RequestParam(value = "page", required = false) Integer page,
-			@RequestParam(value = "rows", required = false) Integer rows, HttpServletRequest request,
-			@RequestParam("userId") String userId,@RequestParam("userName") String userName) {
+			@RequestParam(value = "rows", required = false) Integer rows,
+			@RequestParam(value = "processDefKeys", required = false) String processDefKeys,
+			HttpServletRequest request,
+			@RequestParam("userId") String userId,
+			@RequestParam("userName") String userName) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			Page<BaseVO> p = this.processControllder.initPage(page, rows);
-			List<BaseVO> processList = this.processService.findMyProcessInstances(p, userId);
+			List<String> processDefKeyList = this.processControllder.getProcessDefKeysFromJson(processDefKeys);
+			List<BaseVO> processList = this.processService.findMyProcessInstances(p, userId,processDefKeyList);
 
 			for (BaseVO base : processList) {
 				this.processControllder.generateBaseVO(base, userId,userName);
@@ -89,23 +94,29 @@ public class TaskController {
 	/**
 	 * 查询待办任务
 	 * 
-	 * @param page
-	 * @param rows
-	 * @param userId
-	 * @param userName
+	 * @param page 当前第几页,非必输
+	 * @param rows 每页显示数据数,非必输
+	 * @param processDefKeys 指定流程定义ids,非必输
+	 * @param userId 用户id,必输
+	 * @param userName 用户名,必输
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/todoTask")
 	public String toDoTask(@RequestParam(value = "page", required = false) Integer page,
-			@RequestParam(value = "rows", required = false) Integer rows, HttpServletRequest request,
-			@RequestParam("userId") String userId,@RequestParam("userName") String userName) {
+			@RequestParam(value = "rows", required = false) Integer rows,
+			@RequestParam(value = "processDefKeys", required = false) String processDefKeys,
+			HttpServletRequest request,
+			@RequestParam("userId") String userId,
+			@RequestParam("userName") String userName) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			Page<BaseVO> p = this.processControllder.initPage(page, rows);
+			
+			List<String> processDefKeyList = this.processControllder.getProcessDefKeysFromJson(processDefKeys);
 			// 查询我的任务列表
-			List<BaseVO> taskList = this.cusTaskService.findTodoTask(userId, p);
+			List<BaseVO> taskList = this.cusTaskService.findTodoTask(userId, p,processDefKeyList);
 
 			for (BaseVO base : taskList) {
 				this.processControllder.generateBaseVO(base, userId,userName);
@@ -124,22 +135,29 @@ public class TaskController {
 
 	/**
 	 * 查看已办任务列表<br/>
-	 * @param page
-	 * @param rows
-	 * @param userId
-	 * @param userName
+	 * @param page 当前第几页,非必输
+	 * @param rows 每页显示数据数,非必输
+	 * @param processDefKeys 指定流程定义ids,非必输
+	 * @param userId 用户id,必输
+	 * @param userName 用户名,必输
+	 * @param dataType 数据类型:默认获取所有的已办事宜，"lastet":获取最新的已办事宜,非必输
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/doneTask")
 	public String findDoneTask(@RequestParam(value = "page", required = false) Integer page,
-			@RequestParam(value = "rows", required = false) Integer rows, HttpServletRequest request,
-			@RequestParam("userId") String userId,@RequestParam("userName") String userName) {
+			@RequestParam(value = "rows", required = false) Integer rows,
+			@RequestParam(value = "processDefKeys", required = false) String processDefKeys,
+			@RequestParam(value = "dataType", required = false) String dataType, 
+			HttpServletRequest request,
+			@RequestParam("userId") String userId,
+			@RequestParam("userName") String userName) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			Page<BaseVO> p = this.processControllder.initPage(page, rows);
-			List<BaseVO> taskList = this.cusTaskService.findDoneTask(userId, p);
+			List<String> processDefKeyList = this.processControllder.getProcessDefKeysFromJson(processDefKeys);
+			List<BaseVO> taskList = this.cusTaskService.findDoneTask(userId, p,dataType,processDefKeyList);
 			for (BaseVO base : taskList) {
 				this.processControllder.generateBaseVO(base, userId,userName);
 			}
@@ -158,22 +176,27 @@ public class TaskController {
 	/**
 	 * 查看办结任务列表
 	 * 
-	 * @param page
-	 * @param rows
-	 * @param userId
-	 * @param userName
+	 * @param page 当前第几页,非必输
+	 * @param rows 每页显示数据数,非必输
+	 * @param processDefKeys 指定流程定义ids,非必输
+	 * @param userId 用户id,必输
+	 * @param userName 用户名,必输
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/finishedTask")
 	public String findFinishedTask(@RequestParam(value = "page", required = false) Integer page,
-			@RequestParam(value = "rows", required = false) Integer rows, HttpServletRequest request,
-			@RequestParam("userId") String userId,@RequestParam("userName") String userName) {
+			@RequestParam(value = "rows", required = false) Integer rows,
+			@RequestParam(value = "processDefKeys", required = false) String processDefKeys,
+			HttpServletRequest request,
+			@RequestParam("userId") String userId,
+			@RequestParam("userName") String userName) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			Page<BaseVO> p = this.processControllder.initPage(page, rows);
-			List<BaseVO> taskList = this.processService.findFinishedProcessInstances(p, userId, true);
+			List<String> processDefKeyList = this.processControllder.getProcessDefKeysFromJson(processDefKeys);
+			List<BaseVO> taskList = this.processService.findFinishedProcessInstances(p, userId, true,processDefKeyList);
 			for (BaseVO base : taskList) {
 				this.processControllder.generateBaseVO(base, userId,userName);
 			}

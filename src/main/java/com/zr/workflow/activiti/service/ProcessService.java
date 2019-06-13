@@ -186,45 +186,60 @@ public class ProcessService{
 
 	/**
 	 * 查询所有流程实例（包括结束的和正在运行的）<br/>
-	 * 
+	 * @param page
+	 * @param processDefKeys
 	 * @return
 	 * @throws Exception
 	 */
-
-	public List<BaseVO> findAllProcessInstances(Page<BaseVO> page) throws Exception {
-
-		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
+	public List<BaseVO> findAllProcessInstances(Page<BaseVO> page,List<String> processDefKeys) throws Exception {
+		HistoricProcessInstanceQuery historQuery = null;
+		if(null == processDefKeys || processDefKeys.size() == 0) {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
 				.orderByProcessInstanceStartTime().desc();
+		}else {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
+					.processDefinitionKeyIn(processDefKeys).orderByProcessInstanceStartTime().desc();
+		}
 
 		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
 		return processList;
 	}
 
 	/**
-	 * 查询我的流程实例（包括结束的和正在运行的）<br/>
-	 * 
+	 * 查询我的流程实例（包括结束的和正在运行的）
+	 * @param page
+	 * @param userCode
+	 * @param processDefKeys
 	 * @return
 	 * @throws Exception
 	 */
-	public List<BaseVO> findMyProcessInstances(Page<BaseVO> page, String userCode) throws Exception {
-
-		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
+	public List<BaseVO> findMyProcessInstances(Page<BaseVO> page, String userCode,List<String> processDefKeys) throws Exception {
+		HistoricProcessInstanceQuery historQuery = null;
+		if(null == processDefKeys || processDefKeys.size() == 0) {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
 				.startedBy(userCode).orderByProcessInstanceStartTime().desc();
-
+		}else {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
+					.startedBy(userCode).processDefinitionKeyIn(processDefKeys).orderByProcessInstanceStartTime().desc();
+		}
 		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
 		return processList;
 	}
 
 	/**
 	 * 查询已结束的流程实例<br/>
+	 * @param page
+	 * @param userCode
+	 * @param isInvolved
+	 * @param processDefKeys 
 	 * @return
 	 */
-	public List<BaseVO> findFinishedProcessInstances(Page<BaseVO> page, String userCode, boolean isInvolved) {
+	public List<BaseVO> findFinishedProcessInstances(Page<BaseVO> page, String userCode, boolean isInvolved, List<String> processDefKeys) {
 		HistoricProcessInstanceQuery historQuery = null;
 		if (isInvolved) {
-			historQuery = getHisProInsQueryInvolvedUser(userCode);
+			historQuery = getHisProInsQueryInvolvedUser(userCode,processDefKeys);
 		} else {
-			historQuery = getHisProInsQueryStartedBy(userCode);
+			historQuery = getHisProInsQueryStartedBy(userCode,processDefKeys);
 		}
 
 		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
@@ -236,11 +251,18 @@ public class ProcessService{
 	 * 查询指定用户发起的流程 （流程历史 用户发起 ）
 	 * 
 	 * @param userCode
+	 * @param processDefKeys 
 	 * @return
 	 */
-	private HistoricProcessInstanceQuery getHisProInsQueryStartedBy(String userCode) {
-		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
-				.startedBy(userCode).finished().orderByProcessInstanceEndTime().desc();
+	private HistoricProcessInstanceQuery getHisProInsQueryStartedBy(String userCode, List<String> processDefKeys) {
+		HistoricProcessInstanceQuery historQuery = null;
+		if(null == processDefKeys || processDefKeys.size() == 0) {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
+					.startedBy(userCode).finished().orderByProcessInstanceEndTime().desc();
+		}else {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
+					.startedBy(userCode).finished().processDefinitionKeyIn(processDefKeys).orderByProcessInstanceEndTime().desc();
+		}
 		return historQuery;
 	}
 
@@ -248,11 +270,18 @@ public class ProcessService{
 	 * 查询指定用户参与的流程信息 （流程历史 用户参与 ）
 	 * 
 	 * @param userCode
+	 * @param processDefKeys 
 	 * @return
 	 */
-	private HistoricProcessInstanceQuery getHisProInsQueryInvolvedUser(String userCode) {
-		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
-				.involvedUser(userCode).finished().orderByProcessInstanceEndTime().desc();
+	private HistoricProcessInstanceQuery getHisProInsQueryInvolvedUser(String userCode, List<String> processDefKeys) {
+		HistoricProcessInstanceQuery historQuery = null;
+		if(null == processDefKeys || processDefKeys.size() == 0) {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
+					.involvedUser(userCode).finished().orderByProcessInstanceEndTime().desc();
+		}else {
+			historQuery = historyService.createHistoricProcessInstanceQuery()
+					.involvedUser(userCode).finished().processDefinitionKeyIn(processDefKeys).orderByProcessInstanceEndTime().desc();
+		}
 		return historQuery;
 	}
 
