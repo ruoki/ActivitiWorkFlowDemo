@@ -572,11 +572,11 @@ public class TaskController {
 		this.processControllder.updateContentInfo(request, jsonObject, procDefKey,isAutoCompleteNextActiviti);//先更新业务信息，再变更各节点的执行人
 
 		boolean isChangeData = "true".equals(isChangeDataStr) ? true : false;//数据改变了更新下一节点执行人
-		this.processControllder.updateNextCusUserTaskAssigness(baseVO, condition, isChangeData);
+		this.processControllder.updateNextCusUserTaskAssigness(baseVO, condition,nextActivitiId, isChangeData);
 
 
 		CusUserTask userTask = cusUserTaskService.findByProcAndTask(businessKey, nextActivitiId);
-		if(CusUserTask.TYPE_MULTI.equals(userTask.getActivityType())) {
+		if(null != userTask && CusUserTask.TYPE_MULTI.equals(userTask.getActivityType())) {
 			String candidate_ids = userTask.getCandidate_ids();
 			String[] candidate_users = candidate_ids.split(",");
 			List<String> assigneeList = new ArrayList<>();

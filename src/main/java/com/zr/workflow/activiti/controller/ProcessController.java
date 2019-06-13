@@ -458,17 +458,17 @@ public abstract class ProcessController {
 	 * 默认从前端页面获取candidate_ids和candidate_names进行设置节点执行人
 	 * @param baseVO
 	 * @param condition
+	 * @param nextActivitiId 下一节点key
 	 * @param isChangeData
 	 * @throws Exception
 	 */
-	public void updateNextCusUserTaskAssigness(BaseVO baseVO, String condition, boolean isChangeData) throws Exception {
-
+	public void updateNextCusUserTaskAssigness(BaseVO baseVO, String condition,String nextActivitiId, boolean isChangeData) throws Exception {
 		final String processKey = baseVO.getBusinessKey().split("\\:")[0];
 		CusProcess cusProcess = getProcess(processKey);
 		if(null != cusProcess) {
-			this.userTaskService.updateNextCusUserTaskInfo(baseVO, condition,isChangeData,cusProcess);
+			this.userTaskService.updateNextCusUserTaskInfo(baseVO, condition,nextActivitiId,isChangeData,cusProcess);
 		}else {
-			this.userTaskService.updateNextCusUserTaskInfo(baseVO, condition,isChangeData,null);
+			this.userTaskService.updateNextCusUserTaskInfo(baseVO, condition,nextActivitiId,isChangeData,null);
 		}
 	}
 

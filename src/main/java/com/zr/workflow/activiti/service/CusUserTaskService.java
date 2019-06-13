@@ -248,12 +248,16 @@ public class CusUserTaskService {
 	 * @param baseVO
 	 * @param condition
 	 *            排他网关条件
+	 * @param nextTaskDefKey
+	 *            下一节点key
 	 * @param isChangeData
 	 * 				下一节点执行人数据是否改变，下一节点执行人数据改变才更新Activiti中下一节点执行人
+	 * @param cusProcess
+	 *            当前处理流程节点执行人对象
 	 */
-	public void updateNextCusUserTaskInfo(BaseVO baseVO, String condition,boolean isChangeData,CusProcess cusProcess) throws Exception {
+	public void updateNextCusUserTaskInfo(BaseVO baseVO, String condition,String nextTaskDefKey,boolean isChangeData,CusProcess cusProcess) throws Exception {
 		this.cusProcess = cusProcess;
-		String nextTaskDefKey = ProcessDefinitionCache.get().getNextActivitiId(baseVO,condition);
+//		String nextTaskDefKey = ProcessDefinitionCache.get().getNextActivitiId(baseVO,condition);
 		updateUserTaskAssignee(baseVO, isChangeData, nextTaskDefKey);
 	}
 
