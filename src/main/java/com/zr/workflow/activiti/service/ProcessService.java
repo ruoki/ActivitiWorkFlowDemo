@@ -226,6 +226,16 @@ public class ProcessService{
 		return processList;
 	}
 
+	public BaseVO findProcessInstance(String userCode,String processInstanceId) {
+		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
+				.startedBy(userCode).processInstanceId(processInstanceId).orderByProcessInstanceStartTime().desc();
+
+		List<BaseVO> processList = queryHistoryProcessInstanceList(null, historQuery);
+		if(processList != null && processList.size()>0) {
+			return processList.get(0);
+		}
+		return null;
+	}
 	/**
 	 * 查询已结束的流程实例<br/>
 	 * @param page
@@ -297,7 +307,9 @@ public class ProcessService{
 			//			int[] pageParams = page.getPageParams(totalSum);
 			//			list = historQuery.listPage(pageParams[0], pageParams[1]);
 			int[] pageParams = page.getPageParams(list.size());
-			list = list.subList(pageParams[0], pageParams[0]+pageParams[1]);
+			int startIndex = pageParams[0] < list.size() ? pageParams[0] : 0;
+			int toIndex = (pageParams[0]+pageParams[1]) < list.size() ? pageParams[0]+pageParams[1] : list.size();
+			list = list.subList(startIndex, toIndex);
 		}
 
 		List<BaseVO> processList = castProcessToBaseVo(list);
@@ -414,6 +426,9 @@ public class ProcessService{
 
 	/**
 	 * 获取历史流程变量
+	 * select RES.* from ACT_HI_VARINST RES WHERE RES.PROC_INST_ID_ = ? order by
+	 * RES.ID_ asc LIMIT ? OFFSET ?<br/>
+	 * select * from ACT_GE_BYTEARRAY where ID_ = ? <br/>
 	 * @param variableKey
 	 * @param processInstanceId
 	 * @return
@@ -462,7 +477,7 @@ public class ProcessService{
 	 * 显示图片-通过部署ID，不带流程跟踪
 	 * 
 	 * @param resourceType
-	 * @param processDefinitionId
+	 * @param deploymentId
 	 * @return
 	 * @throws Exception
 	 */
@@ -517,16 +532,37 @@ public class ProcessService{
 			throw new Exception(e);
 		}
 	}
+	
+
 
 	/**
 	 * 获取流程历史中已执行节点，并按照节点在流程中执行先后顺序排序
 	 * @param processInstanceId
 	 * @return
 	 */
-	private List<HistoricActivityInstance> getHistoricActivityInstanceList(String processInstanceId) {
-		List<HistoricActivityInstance> historicActivityInstanceList = historyService
-				.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId)
-				.orderByHistoricActivityInstanceId().asc().list();
+	public List<HistoricActivityInstance> getHistoricActivityInstanceList(String processInstanceId) {
+		List<HistoricActivityInstance> historicActivityInstanceList = getHistoricActivityInstanceList(processInstanceId,"");
+		return historicActivityInstanceList;
+	}
+
+
+	/**
+	 * 获取流程历史中已执行节点，并按照节点在流程中执行先后顺序排序
+	 * @param processInstanceId
+	 * @param activityType
+	 * @return
+	 */
+	public List<HistoricActivityInstance> getHistoricActivityInstanceList(String processInstanceId,String activityType) {
+		List<HistoricActivityInstance> historicActivityInstanceList;
+		if(StringUtil.isNotEmpty(activityType)) {
+			historicActivityInstanceList = historyService
+					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).activityType(activityType).finished()
+					.orderByHistoricActivityInstanceId().asc().list();
+		}else {
+			historicActivityInstanceList = historyService
+					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId)
+					.orderByHistoricActivityInstanceId().asc().list();
+		}
 		historicActivityInstanceList.sort(new Comparator<HistoricActivityInstance>() {
 
 			public int compare(HistoricActivityInstance o1, HistoricActivityInstance o2) {

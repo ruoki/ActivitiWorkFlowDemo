@@ -84,7 +84,6 @@ public class ModelController {
 	 * 删除
 	 * 
 	 * @param modelId
-	 * @param request
 	 * @return
 	 */
 	@RequestMapping("/deleteModel")

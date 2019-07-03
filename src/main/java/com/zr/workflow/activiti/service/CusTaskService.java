@@ -17,6 +17,7 @@ import org.activiti.engine.TaskService;
 import org.activiti.engine.history.HistoricActivityInstance;
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.history.HistoricTaskInstance;
+import org.activiti.engine.impl.RepositoryServiceImpl;
 import org.activiti.engine.impl.identity.Authentication;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.activiti.engine.impl.pvm.PvmTransition;
@@ -37,6 +38,7 @@ import com.zr.workflow.activiti.entity.CommentVO;
 import com.zr.workflow.activiti.entity.CusUserTask;
 import com.zr.workflow.activiti.entity.Page;
 import com.zr.workflow.activiti.util.ApplicationContextHandler;
+import com.zr.workflow.activiti.util.JumpActivityCmd;
 import com.zr.workflow.activiti.util.ProcessDefinitionCache;
 import com.zr.workflow.activiti.util.StringUtil;
 
@@ -82,8 +84,9 @@ public class CusTaskService {
 		tasks = taskQuery.list();
 		if(null != page) {//分页
 			int[] pageParams = page.getPageParams(tasks.size());
-			tasks = tasks.subList(pageParams[0], pageParams[0]+pageParams[1]);
-			//			tasks = taskQuery.listPage(pageParams[0], pageParams[1]);
+			int startIndex = pageParams[0] < tasks.size() ? pageParams[0] : 0;
+			int toIndex = (pageParams[0]+pageParams[1]) < tasks.size() ? pageParams[0]+pageParams[1] : tasks.size();
+			tasks = tasks.subList(startIndex, toIndex);
 		}
 		List<BaseVO> taskList = new ArrayList<BaseVO>();
 		for (Task task : tasks) {
@@ -93,7 +96,7 @@ public class CusTaskService {
 			boolean isSuspended = processInstance.isSuspended();
 			if(isSuspended)continue;//获取激活状态下的流程实例
 
-			BaseVO base = (BaseVO) processService.getBaseVOFromRu_Variable(processInstanceId);
+			BaseVO base = processService.getBaseVOFromRu_Variable(processInstanceId);
 			if (null == base) continue;
 			setBaseVO(base, task,null,processInstance, null);
 			taskList.add(base);
@@ -192,8 +195,8 @@ public class CusTaskService {
 		if (DelegationState.PENDING == task.getDelegationState()) {
 			resolveTask(taskId, variables,content);
 			if(isDelegateAutoHandle) {
-				completeTask(task,  taskId, variables);
-				checkAutoCompleteTask(taskId, task, variables,baseVO.getDescription());
+				completeTask(taskId, variables);
+				checkAutoCompleteTask(taskId, task, variables);
 			}
 		}else {
 			// 设置流程的start_userId和评论人的id
@@ -201,8 +204,8 @@ public class CusTaskService {
 			if(handleFlag != null) {
 				addComment(task, handleFlag, content);
 			}
-			completeTask(task,  taskId, variables);
-			checkAutoCompleteTask(taskId, task, variables,baseVO.getDescription());
+			completeTask(taskId, variables);
+			checkAutoCompleteTask(taskId, task, variables);
 		}
 		List<String> userList = getNextNodeAssigneInfos(baseVO.getProcessInstanceId());
 		return userList;
@@ -256,26 +259,23 @@ public class CusTaskService {
 	/**
 	 * 执行任务
 	 * taskService.complete(taskId, variables)方法是将variables存到execution中
-	 * @param task
 	 * @param taskId
 	 *            任务id
 	 * @param variables
 	 *            流程遍量
 	 */
-	private void completeTask(Task task,  String taskId, Map<String, Object> variables) {
-
+	private void completeTask(String taskId, Map<String, Object> variables) {
 		this.taskService.complete(taskId, variables);
 	}
 
 	/**
 	 * 自动执行(通过)
 	 * 
-	 * @param taskId 任务id
-	 * @param task 任务
+	 * @param preTaskId 任务id
+	 * @param preTask 任务
 	 * @param variables 流程变量
-	 * @param description 任务描述
 	 */
-	private void checkAutoCompleteTask(String preTaskId, Task preTask, Map<String, Object> variables, String description) {
+	private void checkAutoCompleteTask(String preTaskId, Task preTask, Map<String, Object> variables) {
 		try {
 			final String processInstanceId = preTask.getProcessInstanceId();
 			Object autoCompleteObj = processService.getRunVariable("autoComplete", processInstanceId);
@@ -285,16 +285,46 @@ public class CusTaskService {
 					.processInstanceId(processInstanceId).list();
 			if(tasks.size() > 1 )autoComplete = false;
 			Task task = tasks.get(0);
-			if (autoComplete/* || (ProcessDefinitionCache.ARCHIVE.equals(task.getTaskDefinitionKey()) && description.contains(BaseVO.SUB_DESCRIPTION_PASS))*/) {
+			if (autoComplete) {
 				String nextTaskId = task.getId();
-				variables.put("autoComplete", false);
 				if (!preTaskId.equals(nextTaskId)) {
-					completeTask(task,  nextTaskId, variables);
+					boolean isArchive = ProcessDefinitionCache.ARCHIVE.equals(task.getTaskDefinitionKey());
+					if(isArchive) {
+						variables.put("autoComplete", false);
+					}
+
+					completeTask(nextTaskId, variables);
+					//检测是否需要自动执行归档流程
+					Task archiveTask = getArchiveNode(processInstanceId);
+					boolean isArchiveNode = archiveTask != null;
+					if(isArchiveNode) {
+						checkAutoCompleteTask(nextTaskId, archiveTask, variables);
+					}
 				}
 			}
 		} catch (Exception e) {// 有可能是最后一个节点（取消申请），无法继续自动执行下一个节点
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * 归档节点
+	 * @param processInstanceId
+	 * @return
+	 */
+	public Task getArchiveNode(String processInstanceId) {
+
+		List<Task> tasks = taskService.createTaskQuery()// 查询出本流程实例中当前仅有的一个任务
+				.processInstanceId(processInstanceId).list();
+		if(tasks.size() > 1 || tasks.size() < 1) {
+			return null;
+		}
+		Task task = tasks.get(0);
+		boolean isArchiveNode = ProcessDefinitionCache.ARCHIVE.equals(task.getTaskDefinitionKey());
+		if(isArchiveNode) {
+			return task;
+		}
+		return null;
 	}
 
 	/**
@@ -350,8 +380,7 @@ public class CusTaskService {
 
 	/**
 	 * 删除评论
-	 * @param taskId
-	 * @param processInstanceId
+	 * @param commentId
 	 */
 	public void deleteComment(String commentId){
 		this.taskService.deleteComment(commentId);
@@ -373,15 +402,15 @@ public class CusTaskService {
 	 *            处理类型
 	 */
 	private String getComment(StringBuilder handleFlag) {
-		String content = "批准";
+		String content = "同意";
 		if (handleFlag == null || handleFlag.length() < 1)
 			return content;
 		switch (handleFlag.toString()) {
 		case BaseVO.APPROVAL_SUCCESS:
-			content = "批准";
+			content = "同意";
 			break;
 		case BaseVO.APPROVAL_FAILED:
-			content = "驳回";
+			content = "退回";
 			break;
 		case BaseVO.WAITING_FOR_APPROVAL:
 			content = "已重新申请";
@@ -409,13 +438,12 @@ public class CusTaskService {
 	 * 已完成的任务
 	 * 
 	 * @param userId
-	 * @param model
 	 * @param dataType 数据类型:默认获取所有的已办事宜，"lastet":获取最新的已办事宜 
 	 * @param processDefKeys 
 	 * @return
 	 * @throws Exception
 	 */
-	public List<BaseVO> findDoneTask(String userId, Page<BaseVO> page,String dataType, List<String> processDefKeys) throws Exception {
+	public List<BaseVO> findDoneTask(String userId, Page<BaseVO> page,String dataType, List<String> processDefKeys){
 
 		List<BaseVO> doneTaskList = new ArrayList<>();
 
@@ -449,17 +477,19 @@ public class CusTaskService {
 	 */
 	private List<HistoricTaskInstance> getHistoryTaskList(final String userId, Page<BaseVO> page,String dataType, List<String> processDefKeys) {
 		List<HistoricTaskInstance> hTaskAssigneeList = new ArrayList<>();
-		
+
 		hTaskAssigneeList = getAllHisTaskListByInvolvedUser(userId,processDefKeys);
 		if(StringUtil.isNotEmpty(dataType)) {
 			hTaskAssigneeList = getLastetHisTaskListByInvolvedUser(hTaskAssigneeList);
 		}
-		if(null != page) {//分页
+		if(null != page && hTaskAssigneeList.size() > 0) {//分页
 			//			Integer totalSum = historyTaskQuery.list().size();
 			//			int[] pageParams = page.getPageParams(totalSum);
 			//			hTaskAssigneeList = historyTaskQuery.listPage(pageParams[0], pageParams[1]);
 			int[] pageParams = page.getPageParams(hTaskAssigneeList.size());
-			hTaskAssigneeList = hTaskAssigneeList.subList(pageParams[0], pageParams[0]+pageParams[1]);
+			int startIndex = pageParams[0] < hTaskAssigneeList.size() ? pageParams[0] : 0;
+			int toIndex = (pageParams[0]+pageParams[1]) < hTaskAssigneeList.size() ? pageParams[0]+pageParams[1] : hTaskAssigneeList.size();
+			hTaskAssigneeList = hTaskAssigneeList.subList(startIndex, toIndex);
 		}
 		return hTaskAssigneeList;
 	}
@@ -484,8 +514,7 @@ public class CusTaskService {
 
 	/**
 	 * 获取参与者每条流程的最新已办事宜
-	 * @param userId
-	 * @param processDefKeys 
+	 * @param hTaskAssigneeList
 	 * @return
 	 */
 	private List<HistoricTaskInstance> getLastetHisTaskListByInvolvedUser(List<HistoricTaskInstance> hTaskAssigneeList) {
@@ -700,7 +729,7 @@ public class CusTaskService {
 				}
 			}
 		} else {
-			base = (BaseVO) processService.getBaseVOFromRu_Variable(task.getProcessInstanceId());
+			base = processService.getBaseVOFromRu_Variable(task.getProcessInstanceId());
 			if (null != base) {
 				setBaseVO(base,task,null,null, null);
 			}
@@ -1020,6 +1049,120 @@ public class CusTaskService {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	public void rollBackToAssignActivitiKey(String taskId, String fromUserId,String destTaskKey,String msg,Map<String, Object> variables) {
+
+		Task task = getTaskByTaskId(taskId);
+		ProcessDefinitionEntity processDefinition = (ProcessDefinitionEntity)((RepositoryServiceImpl)repositoryService).getDeployedProcessDefinition(task.getProcessDefinitionId());
+		//当前活动节点
+		ActivityImpl curActiviti = processDefinition.findActivity(task.getTaskDefinitionKey());
+		if(curActiviti == null) return;
+		
+		//目标活动节点
+		ActivityImpl destActiviti = processDefinition.findActivity(destTaskKey);
+
+		try {
+			String nextUserActivityId = ProcessDefinitionCache.get().getNextActivitiId(task.getProcessInstanceId(),task.getTaskDefinitionKey(),"false");
+			if(nextUserActivityId.equals(destTaskKey)) {
+				backToLastActivity(fromUserId,task,variables,msg);
+			}else {
+				jumpToActivity(curActiviti,destActiviti,task,fromUserId,variables,msg);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * 正常后退一个节点
+	 * @param fromUserId
+	 * @param task
+	 * @param variables
+	 * @param msg
+	 */
+	private void backToLastActivity(String fromUserId, Task task, Map<String, Object> variables, String msg) {
+		if(variables.size() > 0) {
+			final String variableKey = "isPass" + "_" + task.getTaskDefinitionKey();
+			variables.put(variableKey, "false");
+			Authentication.setAuthenticatedUserId(fromUserId);
+			StringBuilder handleFlag = new StringBuilder();
+			handleFlag.append(BaseVO.APPROVAL_FAILED);
+			addComment(task,handleFlag,msg);
+		}
+		completeTask(task.getId(), variables);
+	}
+
+	/**
+	 * 跳转到指定节点
+	 * @param curActiviti
+	 * @param destActiviti
+	 * @param task
+	 * @param fromUserId
+	 * @param variables
+	 * @param msg
+	 */
+	private void jumpToActivity(ActivityImpl curActiviti, ActivityImpl destActiviti, Task task,String fromUserId, Map<String, Object> variables, String msg) {
+
+		//所有的出口集合
+		List<PvmTransition> pvmTransitions = curActiviti.getOutgoingTransitions();
+		List<PvmTransition> oriPvmTransitions = new ArrayList<>();
+		for (PvmTransition pvmTransition : pvmTransitions) {
+			oriPvmTransitions.add(pvmTransition);
+		}
+		//清除所有出口
+		pvmTransitions.clear();
+		//建立新的出口
+		List<TransitionImpl> transitionImpls = new ArrayList<>();
+		TransitionImpl transitionImpl = curActiviti.createOutgoingTransition();
+		transitionImpl.setDestination(destActiviti);
+		transitionImpls.add(transitionImpl);
+		List<Task> taskList = taskService.createTaskQuery()
+				.processInstanceId(task.getProcessInstanceId())
+				.taskDefinitionKey(task.getTaskDefinitionKey()).list();
+		for (Task task1 : taskList) {
+			backToLastActivity(fromUserId,task1,variables,msg);
+		}
+
+		for (TransitionImpl tempTransition : transitionImpls) {
+			curActiviti.getOutgoingTransitions().remove(tempTransition);
+		}
+
+		for (PvmTransition pvmTransition : oriPvmTransitions) {
+			pvmTransitions.add(pvmTransition);
+		}
+
+	}
+
+	public void rollBackTaskToNode(String taskId, String fromUserId,String destTaskKey,String msg,Map<String, Object> variables) throws Exception {
+		HistoricTaskInstance hiTaskInstance = historyService.createHistoricTaskInstanceQuery().taskId(taskId).finished().singleResult();
+		if(hiTaskInstance != null) {
+			throw new Exception("任务已结束，不能进行回退操作");
+		}
+		if(StringUtil.isEmpty(destTaskKey)) {
+			throw new Exception("回退目标节点不能为空");
+		}
+		long count = taskService.createTaskQuery().taskId(taskId).count();
+		if(count == 0) {
+			throw new Exception("要驳回的任务不存在");
+		}
+		Task curTask = taskService.createTaskQuery().taskId(taskId).singleResult();
+		ProcessDefinitionEntity processDefinition = (ProcessDefinitionEntity)((RepositoryServiceImpl)repositoryService).getDeployedProcessDefinition(curTask.getProcessDefinitionId());
+		String processInstanceId = curTask.getProcessInstanceId();
+		ActivityImpl destActivityImpl = processDefinition.findActivity(destTaskKey);
+		if(destActivityImpl == null) {
+			throw new Exception("要退回的节点不存在");
+		}
+		managementService.executeCommand(new JumpActivityCmd(destTaskKey,processInstanceId));
+		if(variables.size() > 0) {
+			Authentication.setAuthenticatedUserId(fromUserId);
+			StringBuilder handleFlag = new StringBuilder();
+			handleFlag.append(BaseVO.APPROVAL_FAILED);
+			Task task = getTaskByTaskId(taskId);
+			addComment(task,handleFlag,msg);
+			this.processService.setVariables(task.getProcessInstanceId(),variables);
 		}
 	}
 }

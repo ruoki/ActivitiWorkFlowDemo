@@ -40,7 +40,7 @@ public class GFJsonUtil {
 
 
 	/**
-	 * 用Gson 将Object转换成json
+	 * 将Object转换成json：
 	 * @param obj
 	 * @return
 	 */
@@ -48,6 +48,8 @@ public class GFJsonUtil {
 		String json = toJson(obj,null);
 		return json;
 	}
+
+
 	/**
 	 * 将Object转换成json：
 	 * @param obj
@@ -80,12 +82,12 @@ public class GFJsonUtil {
 		return json;
 	}
 
-	/**
-	 * 用Gson批量添加json属性
-	 * @param jsonObj
-	 * @param resultMap
-	 * @return
-	 */
+	//    /**
+	//     * 用Gson批量添加json属性
+	//     * @param jsonObj
+	//     * @param resultMap
+	//     * @return
+	//     */
 	//	public JsonObject addProperty(JsonObject jsonObj, Map<String, Object> resultMap) {
 	//		Iterator<String> resultKeyIterator = resultMap.keySet().iterator();
 	//		while (resultKeyIterator.hasNext()) {
@@ -95,21 +97,25 @@ public class GFJsonUtil {
 	//		}
 	//		return jsonObj;
 	//	}
-
-	/**
-	 * 用Gson添加json属性
-	 * @param jsonObj
-	 * @param key
-	 * @param value
-	 */
+	//
+	//	/**
+	//	 * 用Gson添加json属性
+	//	 * @param jsonObj
+	//	 * @param key
+	//	 * @param value
+	//	 */
 	//	public void addProperty(JsonObject jsonObj, String key, Object value) {
 	//		boolean isContains = jsonObj.has(key);
 	//		if(isContains)jsonObj.remove(key);
 	//		jsonObj.addProperty(key, toJson(value));
+	//	}
+	//	
+
+
 	/**
 	 * 验证一个字符串是否是合法的JSON串
 	 * 
-	 * @param input 要验证的字符串
+	 * @param json 要验证的字符串
 	 * @return true-合法 ，false-非法
 	 */
 	public boolean validate(String json) {
@@ -124,6 +130,7 @@ public class GFJsonUtil {
 			return false;
 		}
 	}
+
 	/**
 	 * 用FastJson 将Object转换成json：
 	 * @param obj
@@ -243,5 +250,7 @@ public class GFJsonUtil {
 		}
 		return json;
 	}
+
+
 
 }

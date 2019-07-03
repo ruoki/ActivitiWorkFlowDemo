@@ -22,8 +22,8 @@ import com.zr.workflow.activiti.service.CusUserTaskService;
  * class填：net.northking.activiti.rest.CusTaskListener,用这种方法需要在代码中重新获取service；
  * 用spring管理下的bean，将监听类交由spring管理， 所以这里选择代理表达式的方式: Delegate
  * Expression:${cusTaskListener}
- * 
  * @author zhourq
+ * 
  *
  */
 @Component
@@ -76,7 +76,6 @@ public class CusTaskListener implements TaskListener {
 	 * 只要有一人通过即为通过
 	 * @param delegateTask
 	 * @param businessKey
-	 * @param projectId
 	 * @param userTask
 	 */
 	private void setAssigneeToUsersTask(DelegateTask delegateTask, final String businessKey, 

@@ -246,8 +246,6 @@ public class CusUserTaskService {
 	 * 设定下一节点执行人
 	 * 
 	 * @param baseVO
-	 * @param condition
-	 *            排他网关条件
 	 * @param nextTaskDefKey
 	 *            下一节点key
 	 * @param isChangeData
@@ -255,9 +253,8 @@ public class CusUserTaskService {
 	 * @param cusProcess
 	 *            当前处理流程节点执行人对象
 	 */
-	public void updateNextCusUserTaskInfo(BaseVO baseVO, String condition,String nextTaskDefKey,boolean isChangeData,CusProcess cusProcess) throws Exception {
+	public void updateNextCusUserTaskInfo(BaseVO baseVO, String nextTaskDefKey,boolean isChangeData,CusProcess cusProcess) throws Exception {
 		this.cusProcess = cusProcess;
-//		String nextTaskDefKey = ProcessDefinitionCache.get().getNextActivitiId(baseVO,condition);
 		updateUserTaskAssignee(baseVO, isChangeData, nextTaskDefKey);
 	}
 
@@ -265,7 +262,6 @@ public class CusUserTaskService {
 	 * 动态更新act_cus_user_task表的节点执行人
 	 * @param baseVO
 	 * @param isChangeData
-	 * @param businessKey
 	 * @param taskDefKey
 	 * @throws Exception
 	 */
@@ -380,7 +376,8 @@ public class CusUserTaskService {
 
 	/**
 	 * 自动跳过
-	 * @param string
+	 * @param variables
+	 * @param processInstanceId
 	 * @param taskDefKey
 	 * @throws Exception
 	 */
