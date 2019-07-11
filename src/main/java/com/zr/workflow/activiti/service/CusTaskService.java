@@ -6,6 +6,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import javax.annotation.Resource;
 
@@ -38,7 +44,7 @@ import com.zr.workflow.activiti.entity.CommentVO;
 import com.zr.workflow.activiti.entity.CusUserTask;
 import com.zr.workflow.activiti.entity.Page;
 import com.zr.workflow.activiti.util.ApplicationContextHandler;
-import com.zr.workflow.activiti.util.JumpActivityCmd;
+import com.zr.workflow.activiti.util.DeleteHistoricTaskInstanceCmdImpl;
 import com.zr.workflow.activiti.util.ProcessDefinitionCache;
 import com.zr.workflow.activiti.util.StringUtil;
 
@@ -80,7 +86,7 @@ public class CusTaskService {
 		}else {
 			taskQuery = this.taskService.createTaskQuery().taskCandidateOrAssigned(userId).processDefinitionKeyIn(processDefKeys).orderByTaskCreateTime().desc();
 		}
-		List<Task> tasks = new ArrayList<>();
+		List<Task> tasks;
 		tasks = taskQuery.list();
 		if(null != page) {//分页
 			int[] pageParams = page.getPageParams(tasks.size());
@@ -452,7 +458,7 @@ public class CusTaskService {
 			String processInstanceId = historicTaskInstance.getProcessInstanceId();
 			HistoricProcessInstance historicProcessInstance = processService.getHisProcessInstanceByInstanceId(processInstanceId);
 
-			BaseVO base = null;
+			BaseVO base;
 			if (null != historicProcessInstance.getEndTime()) {
 				base = processService.getBaseVOFromHistoryVariable(processInstanceId);
 				base.setEnd(true);
@@ -504,10 +510,10 @@ public class CusTaskService {
 		List<HistoricTaskInstance> hTaskAssigneeList;
 		if(null == processDefKeys || processDefKeys.size() == 0) {
 			hTaskAssigneeList = historyService.createHistoricTaskInstanceQuery().taskInvolvedUser(userId)
-					.finished().orderByHistoricTaskInstanceEndTime().desc().list();
+					/*.finished()*/.orderByTaskCreateTime().desc().list();
 		}else {
 			hTaskAssigneeList = historyService.createHistoricTaskInstanceQuery().taskInvolvedUser(userId)
-					.finished().processDefinitionKeyIn(processDefKeys).orderByHistoricTaskInstanceEndTime().desc().list();
+					/*.finished()*/.processDefinitionKeyIn(processDefKeys).orderByTaskCreateTime().desc().list();
 		}
 		return hTaskAssigneeList;
 	}
@@ -518,11 +524,46 @@ public class CusTaskService {
 	 * @return
 	 */
 	private List<HistoricTaskInstance> getLastetHisTaskListByInvolvedUser(List<HistoricTaskInstance> hTaskAssigneeList) {
-		hTaskAssigneeList = removeDuplicate(hTaskAssigneeList);
+		hTaskAssigneeList = distinct(hTaskAssigneeList);
 		return hTaskAssigneeList;
 	}
 
-	public List<HistoricTaskInstance> removeDuplicate(List<HistoricTaskInstance> list){       
+	/**
+	 * 根据流程实例id去除重复数据
+	 * @param list
+	 * @return
+	 */
+	public List<HistoricTaskInstance> distinct(List<HistoricTaskInstance> list){
+		list = distinctByFilter(list);
+//		list = distinctByCollect(list);
+//		list = distinctByRemove(list);
+		return list;
+	}
+
+	private List<HistoricTaskInstance> distinctByFilter(List<HistoricTaskInstance> list) {
+		list = list.stream().filter(distinctBy(HistoricTaskInstance::getProcessInstanceId))
+				.filter(taskInstance ->null != taskInstance.getEndTime())
+				.collect(Collectors.toList());
+		return list;
+	}
+
+	public static <T> Predicate<T> distinctBy(Function<? super T,?> keyExtractor) {
+		Set<Object> seen = ConcurrentHashMap.newKeySet();
+		return t -> seen.add(keyExtractor.apply(t));
+	}
+
+	private List<HistoricTaskInstance> distinctByCollect(List<HistoricTaskInstance> list) {
+		list = list.stream().collect(
+				Collectors.collectingAndThen(
+						Collectors.toCollection(
+								()->new TreeSet<>(
+										Comparator.comparing(HistoricTaskInstance::getProcessInstanceId)
+								)
+						), ArrayList::new));
+		return list;
+	}
+
+	private List<HistoricTaskInstance> distinctByRemove(List<HistoricTaskInstance> list) {
 		for (int i = 0 ; i < list.size() - 1; i++){
 			for (int j = list.size() - 1 ; j>i; j--){
 				if (list.get(j).getProcessInstanceId().equals(list.get(i).getProcessInstanceId())){
@@ -531,7 +572,7 @@ public class CusTaskService {
 			}
 		}
 		return list;
-	}  
+	}
 
 	/**
 	 * 填充实体类
@@ -864,9 +905,15 @@ public class CusTaskService {
 		boolean result3 = isNextTaskComplete(backFromTaskId, backFromActivitiType, hisTaskInstanceBackFrom.getTaskDefinitionKey());
 		if(result3) return 3;
 
+
+		Map<String, Object> variables = runtimeService.getVariables(hisTaskInstanceBackTo.getProcessInstanceId());
+		if("M".equals(backToActivitiType)) {//多实例节点,重置节点通过的条件
+			resetMembers(variables,hisTaskInstanceBackTo.getTaskDefinitionKey());
+		}
+		System.out.println(variables);
+
+
 		JdbcTemplate jdbcTemplate = ApplicationContextHandler.getBean(JdbcTemplate.class);
-
-
 
 		List<HistoricTaskInstance> backToHTIList = null;
 		if("M".equals(backToActivitiType)) {//多实例节点
@@ -881,9 +928,18 @@ public class CusTaskService {
 		}
 
 		for (HistoricTaskInstance historicTaskInstance : backToHTIList) {
-			deleteBackToActivitiHis(historicTaskInstance,jdbcTemplate);
+			deleteActivitiHistoryInfo(historicTaskInstance,jdbcTemplate);
 		}
-		updateNextUserTaskActivitiTransition(hisTaskInstanceBackTo,backToActivitiType, jdbcTemplate);
+
+		// 取得流程定义
+		ProcessDefinitionEntity definitionEntity = (ProcessDefinitionEntity) repositoryService
+				.getProcessDefinition(hisTaskInstanceBackTo.getProcessDefinitionId());
+		System.out.println(definitionEntity);
+		
+		ActivityImpl currActivity = definitionEntity.findActivity(hisTaskInstanceBackFrom.getTaskDefinitionKey());
+		ActivityImpl destActiviti = definitionEntity.findActivity(hisTaskInstanceBackTo.getTaskDefinitionKey());
+		System.out.println(destActiviti);
+		updateNextUserTaskActivitiTransition(userId,hisTaskInstanceBackFrom.getProcessInstanceId(),hisTaskInstanceBackFrom.getTaskDefinitionKey(),hisTaskInstanceBackFrom.getId(),currActivity,destActiviti,variables,"", jdbcTemplate);
 		return 0;
 	}
 
@@ -949,64 +1005,6 @@ public class CusTaskService {
 		}
 		return false;
 	}
-
-	/**
-	 * 将hisTaskInstanceBackFrom任务后面的方向清空，把hisTaskInstanceBackTo任务拼接到原来的判断网关，然后结束hisTaskInstanceBackFrom任务
-	 * @param hisTaskInstanceBackTo
-	 * @param jdbcTemplate
-	 */
-	private void updateNextUserTaskActivitiTransition(HistoricTaskInstance hisTaskInstanceBackTo,String backToActivitiType,
-			JdbcTemplate jdbcTemplate) {
-		Map<String, Object> variables = runtimeService.getVariables(hisTaskInstanceBackTo.getProcessInstanceId());
-		if("M".equals(backToActivitiType)) {//多实例节点,重置节点通过的条件
-			resetMembers(variables,hisTaskInstanceBackTo.getTaskDefinitionKey());
-		}
-		System.out.println(variables);
-
-		// 取得流程定义
-		ProcessDefinitionEntity definitionEntity = (ProcessDefinitionEntity) repositoryService
-				.getProcessDefinition(hisTaskInstanceBackTo.getProcessDefinitionId());
-		System.out.println(definitionEntity);
-		// 取得上一步活动
-		ActivityImpl hisActivity = definitionEntity.findActivity(hisTaskInstanceBackTo.getTaskDefinitionKey());
-
-		System.out.println(hisActivity);
-
-
-		List<Task> currTasks = taskService.createTaskQuery().processInstanceId(hisTaskInstanceBackTo.getProcessInstanceId()).list();
-		for (Task currTask : currTasks) {
-			ActivityImpl currActivity = definitionEntity.findActivity(currTask.getTaskDefinitionKey());
-
-			//hisTaskInstanceBackFrom任务后面的方向清空
-			ArrayList<PvmTransition> oriPvmTransitionList = new ArrayList<>();
-			List<PvmTransition> pvmTransitionList = currActivity.getOutgoingTransitions();
-			for (PvmTransition pvmTransition : pvmTransitionList) {
-				oriPvmTransitionList.add(pvmTransition);
-			}
-			pvmTransitionList.clear();
-
-			// 建立新方向，把hisTaskInstanceBackTo任务拼接到原来的判断网关
-			TransitionImpl newTransition = currActivity.createOutgoingTransition();
-			newTransition.setDestination(hisActivity);
-
-			//结束hisTaskInstanceBackFrom任务
-			taskService.claim(currTask.getId(), null);
-			taskService.complete(currTask.getId(), variables);
-
-			historyService.deleteHistoricTaskInstance(currTask.getId());
-			//删除历史行为
-			jdbcTemplate.update("delete from ACT_HI_ACTINST where task_id_=?", currTask.getId());
-
-			// 恢复方向
-			hisActivity.getIncomingTransitions().remove(newTransition);
-			List<PvmTransition> pvmTList = currActivity.getOutgoingTransitions();
-			pvmTList.clear();
-			for (PvmTransition pvmTransition : oriPvmTransitionList) {
-				pvmTransitionList.add(pvmTransition);
-			}
-		}
-	}
-
 	/**
 	 * 重置多实例任务节点同意人数或驳回人数流程变量
 	 * @param variables
@@ -1018,16 +1016,111 @@ public class CusTaskService {
 	}
 
 	/**
+	 * 
+	 * @param backFromTaskId
+	 * @param fromUserId
+	 * @param destTaskKey
+	 * @param toDeleteActivitySize //删除历史任务表中当前节点到目标节点中间的节点数，不能为空
+	 * @param msg
+	 * @param variables
+	 * @throws Exception
+	 */
+	public void rollBackToAssignActivitiKey(String backFromTaskId, String fromUserId, String destTaskKey,int toDeleteActivitySize, String msg, Map<String, Object> variables) throws Exception {
+		Task backFromTask = getTaskByTaskId(backFromTaskId);
+		HistoricTaskInstance hiTaskInstance = historyService.createHistoricTaskInstanceQuery().taskId(backFromTaskId).finished().singleResult();
+		if(hiTaskInstance != null) {
+			throw new Exception("任务已结束，不能进行回退操作");
+		}
+		if(backFromTask == null) {
+			throw new Exception("要驳回的任务不存在");
+		}
+
+		try {
+			String nextUserActivityId = ProcessDefinitionCache.get().getNextActivitiId(backFromTask.getProcessInstanceId(),backFromTask.getTaskDefinitionKey(),"false");
+			if(nextUserActivityId.equals(destTaskKey)) {
+				backToLastActivity(fromUserId,backFromTask,variables,msg);
+			}else {
+				jumpToActivity(backFromTask,destTaskKey,toDeleteActivitySize,fromUserId,variables,msg);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * 正常后退一个节点
+	 * @param fromUserId
+	 * @param task
+	 * @param variables
+	 * @param msg
+	 */
+	private void backToLastActivity(String fromUserId, Task task, Map<String, Object> variables, String msg) {
+		final String variableKey = "isPass" + "_" + task.getTaskDefinitionKey();
+		variables.put(variableKey, "false");
+		completeTaskAndAddComment(fromUserId,task,variables,msg);
+	}
+
+	private void completeTaskAndAddComment(String fromUserId, Task task, Map<String, Object> variables, String msg) {
+		Authentication.setAuthenticatedUserId(fromUserId);
+		StringBuilder handleFlag = new StringBuilder();
+		handleFlag.append(BaseVO.APPROVAL_FAILED);
+		addComment(task,handleFlag,msg);
+		completeTask(task.getId(), variables);
+	}
+
+	/**
+	 * 退回，跳转到指定节点
+	 * @param backFromTask
+	 * @param destTaskKey
+	 * @param toDeleteActivitySize
+	 * @param fromUserId
+	 * @param variables
+	 * @param msg
+	 */
+	private void jumpToActivity(Task backFromTask, String destTaskKey, int toDeleteActivitySize, String fromUserId, Map<String, Object> variables, String msg) throws Exception {
+		ProcessDefinitionEntity processDefinition = (ProcessDefinitionEntity)((RepositoryServiceImpl)repositoryService).getDeployedProcessDefinition(backFromTask.getProcessDefinitionId());
+		//当前活动节点
+		ActivityImpl backFromActivity = processDefinition.findActivity(backFromTask.getTaskDefinitionKey());
+
+		//目标活动节点
+		ActivityImpl destActivity = processDefinition.findActivity(destTaskKey);
+		if(destActivity == null) {
+			throw new Exception("要退回的节点不存在");
+		}
+
+		List<HistoricTaskInstance> toDeleteActivitiesHistoryList = this.historyService.createHistoricTaskInstanceQuery().processInstanceId(backFromTask.getProcessInstanceId()).taskDefinitionKey(destTaskKey).orderByTaskCreateTime().desc().list();
+
+		JdbcTemplate jdbcTemplate = ApplicationContextHandler.getBean(JdbcTemplate.class);
+		addToDeleteActivitiesHis(toDeleteActivitySize,backFromTask.getProcessInstanceId(), destTaskKey, toDeleteActivitiesHistoryList);
+
+		for (HistoricTaskInstance historicTaskInstance : toDeleteActivitiesHistoryList) {
+			deleteActivitiHistoryInfo(historicTaskInstance,jdbcTemplate);
+		}
+		updateNextUserTaskActivitiTransition(fromUserId,backFromTask.getProcessInstanceId(),backFromTask.getTaskDefinitionKey(),backFromTask.getId(),backFromActivity,destActivity,variables,msg, jdbcTemplate);
+	}
+
+	private void addToDeleteActivitiesHis(int toDeleteActivitySize,String processInstanceId, String destTaskKey, List<HistoricTaskInstance> toDeleteActivitiesHistoryList) throws Exception {
+		for (int i =1;i<toDeleteActivitySize;i++){
+			String nextUserActivityId = ProcessDefinitionCache.get().getNextActivitiId(processInstanceId,destTaskKey,"true");
+			List<HistoricTaskInstance> nextActivityTaskList = this.historyService.createHistoricTaskInstanceQuery().taskDefinitionKey(nextUserActivityId).orderByTaskCreateTime().desc().list();
+			toDeleteActivitiesHistoryList.addAll(nextActivityTaskList);
+
+			addToDeleteActivitiesHis(toDeleteActivitySize-1,processInstanceId,nextUserActivityId,toDeleteActivitiesHistoryList);
+		}
+	}
+
+	/**
 	 * 删除当前节点的历史信息
 	 * @param hisTaskInstanceBackTo
 	 * @param jdbcTemplate
 	 */
-	private void deleteBackToActivitiHis(HistoricTaskInstance hisTaskInstanceBackTo,
-			JdbcTemplate jdbcTemplate) {
+	private void deleteActivitiHistoryInfo(HistoricTaskInstance hisTaskInstanceBackTo,
+										   JdbcTemplate jdbcTemplate) {
 		deleteHisEGA(hisTaskInstanceBackTo, jdbcTemplate);
 		//删除历史行为
 		jdbcTemplate.update("delete from ACT_HI_ACTINST where task_id_=?", hisTaskInstanceBackTo.getId());
-		historyService.deleteHistoricTaskInstance(hisTaskInstanceBackTo.getId());
+		deleteHistoricTaskInstance(hisTaskInstanceBackTo.getId());
 	}
 
 	/**
@@ -1052,117 +1145,68 @@ public class CusTaskService {
 		}
 	}
 
-	public void rollBackToAssignActivitiKey(String taskId, String fromUserId,String destTaskKey,String msg,Map<String, Object> variables) {
-
-		Task task = getTaskByTaskId(taskId);
-		ProcessDefinitionEntity processDefinition = (ProcessDefinitionEntity)((RepositoryServiceImpl)repositoryService).getDeployedProcessDefinition(task.getProcessDefinitionId());
-		//当前活动节点
-		ActivityImpl curActiviti = processDefinition.findActivity(task.getTaskDefinitionKey());
-		if(curActiviti == null) return;
-		
-		//目标活动节点
-		ActivityImpl destActiviti = processDefinition.findActivity(destTaskKey);
-
-		try {
-			String nextUserActivityId = ProcessDefinitionCache.get().getNextActivitiId(task.getProcessInstanceId(),task.getTaskDefinitionKey(),"false");
-			if(nextUserActivityId.equals(destTaskKey)) {
-				backToLastActivity(fromUserId,task,variables,msg);
-			}else {
-				jumpToActivity(curActiviti,destActiviti,task,fromUserId,variables,msg);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-	}
-
 	/**
-	 * 正常后退一个节点
+	 * 将backFromActivity任务后面的方向清空，把destActivity任务拼接到原来的判断网关，然后结束backFromTask任务
 	 * @param fromUserId
-	 * @param task
+	 * @param processInstanceId
+	 * @param backFromTaskDefKey
+	 * @param backFromTaskId
+	 * @param backFromActivity
+	 * @param destActivity
 	 * @param variables
 	 * @param msg
+	 * @param jdbcTemplate
 	 */
-	private void backToLastActivity(String fromUserId, Task task, Map<String, Object> variables, String msg) {
-		if(variables.size() > 0) {
-			final String variableKey = "isPass" + "_" + task.getTaskDefinitionKey();
-			variables.put(variableKey, "false");
-			Authentication.setAuthenticatedUserId(fromUserId);
-			StringBuilder handleFlag = new StringBuilder();
-			handleFlag.append(BaseVO.APPROVAL_FAILED);
-			addComment(task,handleFlag,msg);
-		}
-		completeTask(task.getId(), variables);
-	}
-
-	/**
-	 * 跳转到指定节点
-	 * @param curActiviti
-	 * @param destActiviti
-	 * @param task
-	 * @param fromUserId
-	 * @param variables
-	 * @param msg
-	 */
-	private void jumpToActivity(ActivityImpl curActiviti, ActivityImpl destActiviti, Task task,String fromUserId, Map<String, Object> variables, String msg) {
+	private void updateNextUserTaskActivitiTransition(String fromUserId,String processInstanceId,String backFromTaskDefKey,String backFromTaskId,ActivityImpl backFromActivity,ActivityImpl destActivity,Map<String, Object> variables,String msg,
+													  JdbcTemplate jdbcTemplate) {
 
 		//所有的出口集合
-		List<PvmTransition> pvmTransitions = curActiviti.getOutgoingTransitions();
+		List<PvmTransition> pvmTransitions = backFromActivity.getOutgoingTransitions();
 		List<PvmTransition> oriPvmTransitions = new ArrayList<>();
 		for (PvmTransition pvmTransition : pvmTransitions) {
 			oriPvmTransitions.add(pvmTransition);
 		}
 		//清除所有出口
 		pvmTransitions.clear();
+
 		//建立新的出口
 		List<TransitionImpl> transitionImpls = new ArrayList<>();
-		TransitionImpl transitionImpl = curActiviti.createOutgoingTransition();
-		transitionImpl.setDestination(destActiviti);
-		transitionImpls.add(transitionImpl);
-		List<Task> taskList = taskService.createTaskQuery()
-				.processInstanceId(task.getProcessInstanceId())
-				.taskDefinitionKey(task.getTaskDefinitionKey()).list();
-		for (Task task1 : taskList) {
-			backToLastActivity(fromUserId,task1,variables,msg);
+		TransitionImpl newTransition = backFromActivity.createOutgoingTransition();
+		newTransition.setDestination(destActivity);
+		transitionImpls.add(newTransition);
+
+		//结束backFromTask任务
+		List<Task> currentTaskList = taskService.createTaskQuery()
+				.processInstanceId(processInstanceId)
+				.taskDefinitionKey(backFromTaskDefKey).list();
+		for (Task currTask : currentTaskList) {
+			taskService.claim(currTask.getId(), null);
+			if(backFromTaskId.equals(currTask.getId())) {
+				completeTaskAndAddComment(fromUserId, currTask, variables, msg);//执行多任务节点时只添加一条评论
+			}else {
+				taskService.complete(currTask.getId(), variables);
+			}
+			deleteHistoricTaskInstance(currTask.getId());
+			//删除历史行为
+			jdbcTemplate.update("delete from ACT_HI_ACTINST where task_id_=?", currTask.getId());
 		}
 
+		// 恢复方向
 		for (TransitionImpl tempTransition : transitionImpls) {
-			curActiviti.getOutgoingTransitions().remove(tempTransition);
+			backFromActivity.getOutgoingTransitions().remove(tempTransition);
 		}
 
 		for (PvmTransition pvmTransition : oriPvmTransitions) {
 			pvmTransitions.add(pvmTransition);
 		}
-
 	}
 
-	public void rollBackTaskToNode(String taskId, String fromUserId,String destTaskKey,String msg,Map<String, Object> variables) throws Exception {
-		HistoricTaskInstance hiTaskInstance = historyService.createHistoricTaskInstanceQuery().taskId(taskId).finished().singleResult();
-		if(hiTaskInstance != null) {
-			throw new Exception("任务已结束，不能进行回退操作");
-		}
-		if(StringUtil.isEmpty(destTaskKey)) {
-			throw new Exception("回退目标节点不能为空");
-		}
-		long count = taskService.createTaskQuery().taskId(taskId).count();
-		if(count == 0) {
-			throw new Exception("要驳回的任务不存在");
-		}
-		Task curTask = taskService.createTaskQuery().taskId(taskId).singleResult();
-		ProcessDefinitionEntity processDefinition = (ProcessDefinitionEntity)((RepositoryServiceImpl)repositoryService).getDeployedProcessDefinition(curTask.getProcessDefinitionId());
-		String processInstanceId = curTask.getProcessInstanceId();
-		ActivityImpl destActivityImpl = processDefinition.findActivity(destTaskKey);
-		if(destActivityImpl == null) {
-			throw new Exception("要退回的节点不存在");
-		}
-		managementService.executeCommand(new JumpActivityCmd(destTaskKey,processInstanceId));
-		if(variables.size() > 0) {
-			Authentication.setAuthenticatedUserId(fromUserId);
-			StringBuilder handleFlag = new StringBuilder();
-			handleFlag.append(BaseVO.APPROVAL_FAILED);
-			Task task = getTaskByTaskId(taskId);
-			addComment(task,handleFlag,msg);
-			this.processService.setVariables(task.getProcessInstanceId(),variables);
-		}
+	/**
+	 * 删除历史任务表
+	 * @param taskId
+	 */
+	private void deleteHistoricTaskInstance(String taskId) {
+//		historyService.deleteHistoricTaskInstance(taskId);//会级联删除评论
+		managementService.executeCommand(new DeleteHistoricTaskInstanceCmdImpl(taskId));
 	}
 }

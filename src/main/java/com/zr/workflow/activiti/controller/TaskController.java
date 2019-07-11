@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.activiti.engine.ActivitiObjectNotFoundException;
 import org.activiti.engine.ActivitiTaskAlreadyClaimedException;
+import org.activiti.engine.history.HistoricActivityInstance;
 import org.activiti.engine.task.Task;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -57,20 +58,17 @@ public class TaskController {
 	 * @param page 当前第几页,非必输
 	 * @param rows 每页显示数据数,非必输
 	 * @param processDefKeys 指定流程定义ids,非必输
-	 * @param userId 用户id,必输
-	 * @param userName 用户名,必输
 	 * @return
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/findAllProcess")
 	public String findAllProcess(@RequestParam(value = "page", required = false) Integer page,
 								 @RequestParam(value = "rows", required = false) Integer rows,
-								 @RequestParam(value = "processDefKeys", required = false) String processDefKeys,
-								 @RequestParam("userId") String userId,@RequestParam("userName") String userName) {
+								 @RequestParam(value = "processDefKeys", required = false) String processDefKeys) {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			List<BaseVO> processList = getTaskList("allProcess",page, rows, processDefKeys, userId, userName,"");
+			List<BaseVO> processList = getTaskList("allProcess",page, rows, processDefKeys, "", "","");
 			System.out.println("所有流程实例：" + processList);
 			resultMap.put("type", "success");
 			resultMap.put("data", processList);
@@ -128,7 +126,7 @@ public class TaskController {
 	 * @throws Exception
 	 */
 	@RequestMapping(value = "/todoTask")
-	public String toDoTask(@RequestParam(value = "page", required = false) Integer page,
+	public String findToDoTask(@RequestParam(value = "page", required = false) Integer page,
 			@RequestParam(value = "rows", required = false) Integer rows,
 			@RequestParam(value = "processDefKeys", required = false) String processDefKeys,
 			@RequestParam("userId") String userId,
@@ -299,7 +297,7 @@ public class TaskController {
 			base.setAssignedName(assignedName);
 		}
 
-		if (!StringUtil.isEmpty(nextAssign)) {
+		if (StringUtil.isEmpty(nextAssignName) && !StringUtil.isEmpty(nextAssign)) {
 			nextAssignName = getUserNamesFromLocal(nextAssign);
 			if(StringUtil.isEmpty(nextAssignName)) {
 				base.setAssignName(base.getCandidate_names());
@@ -313,11 +311,10 @@ public class TaskController {
 			final String workFloWTitle = StringUtil.isEmpty(base.getTitle()) ? "请求" : base.getTitle();
 			description = base.getCreateName()+" 的"+workFloWTitle+ BaseVO.SUB_DESCRIPTION_PASS;
 		}
-		if (description.contains(userName)) {
+		if (StringUtil.isNotEmpty(userName) && description.contains(userName)) {
 			description = description.replaceAll(userName, "您");
 		}
 		final String contentInfo = null == base.getContentInfo()?"":base.getContentInfo().toString();
-		
 		if(StringUtil.isNotEmpty(contentInfo)) {
 			base.setContentInfo(GFJsonUtil.get().parseJson(contentInfo,JSONObject.class));
 		}
@@ -351,7 +348,11 @@ public class TaskController {
 				int i = 0;
 				for (i = 0; i<commentList.size(); i++) {
 					CommentVO commentVO = commentList.get(i);
-					commentVO.setUserName(getUserNamesFromLocal(commentVO.getUserId()));
+					String userName = getUserNamesFromLocal(commentVO.getUserId());
+					if(StringUtil.isEmpty(userName)){
+						userName = base.getAssignedName();
+					}
+					commentVO.setUserName(userName);
 					if(i != 0) {
 						int j = i-1;
 						setOtherCommentNextAssign(historyCommentList, commentVO, j);
@@ -384,9 +385,6 @@ public class TaskController {
 				nextAssignName = getUserNamesFromLocal(nextAssign);
 			}
 			commentVO.setNextAssignName(nextAssignName);
-//
-//			commentVO.setNextAssign(base.getAssign());
-//			commentVO.setNextAssignName(base.getAssignName());
 		}
 	}
 
@@ -540,7 +538,7 @@ public class TaskController {
 					resultMap.put("msg", "当前任务执行完毕");
 				}
 
-				List<Task> toDotaskList = getTaskByProcessInstanceId(baseVO.getProcessInstanceId());// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
+				List<Task> toDotaskList = this.cusTaskService.getTaskByProcessInstanceId(baseVO.getProcessInstanceId());// 获取该流程的待办任务,可能是多实例的会签点，可能有多个执行人多个任务
 
 				List<Map<String,String>> listTask = new ArrayList<>();
 				List<CommentVO> commentList = new ArrayList<>();
@@ -613,6 +611,9 @@ public class TaskController {
 		}
 		baseVO.setCandidate_ids(candidate_ids);// 动态指定下一节点执行人id，多个人用逗号分隔
 		baseVO.setCandidate_names(candidate_names);// 动态指定下一节点执行人name
+
+		baseVO.setAssign(candidate_ids);
+		baseVO.setAssignName(candidate_names);
 
 		if(contentInfo != null) {
 			baseVO.setContentInfo(contentInfo);
@@ -1039,11 +1040,13 @@ public class TaskController {
 	}
 
 	/**
-	 * 退回到指定节点方法一
+	 * 退回到指定节点
 	 * @param json:{
 	 * 			  fromUserId:'',//处理人id，不能为空<br/>
-	 *            destTaskKey:'',//退回至目标节点Key，不能为空<br/>
+	 * 			  fromUserName:'',//处理人name，不能为空<br/>
+	 *            processInstanceId：''，//流程实例id，不能为空<br/>
 	 *            taskId:'',//任务id，不能为空<br/>
+	 *            destTaskKey:'',//退回至目标节点Key，不能为空<br/>
 	 *            processInstanceId:'',//流程实例id，不能为空<br/>
 	 *            content:'',//评论内容，可为空<br/>
 	 *            contentInfo:{},//业务内容，如果需要更新页面的业务信息，则传该参数，否则可不传<br/>
@@ -1051,31 +1054,61 @@ public class TaskController {
 	 *            }
 	 * @return
 	 */
-
-	@RequestMapping("/rollBackTaskTo")
+	@RequestMapping("/backTo")
 	public String rollBackToAssignNode(@RequestBody String json) {
+
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-//			String processInstanceId = GFJsonUtil.get().getProperty(json, "processInstanceId");
 			String taskId = GFJsonUtil.get().getProperty(json, "taskId");
+			String processInstanceId = GFJsonUtil.get().getProperty(json, "processInstanceId");
 			String fromUserId = GFJsonUtil.get().getProperty(json, "fromUserId");
 			String fromUserName = GFJsonUtil.get().getProperty(json, "fromUserName");
 			String destTaskKey = GFJsonUtil.get().getProperty(json, "destTaskKey");
-			String msg = GFJsonUtil.get().getProperty(json, "content");
-			Map<String, Object> variables = new HashMap<>();
-			boolean hasComments = GFJsonUtil.get().containsKey(json, "comments");
-			if(hasComments) {
-				BaseVO baseVO = getBaseVO(json,taskId);
-				baseVO.setProcessStatus(BaseVO.APPROVAL_FAILED);
-				final String workFloWTitle = StringUtil.isEmpty(baseVO.getTitle()) ? "请求" : baseVO.getTitle();
-				String description = baseVO.getCreateName() + " 的" + workFloWTitle + "被 " + fromUserName + "驳回,需修改后重新提交！";
-				baseVO.setDescription(description);
-				variables.put("entity", baseVO);
+			String errorMsg = "";
+			if(StringUtil.isEmpty(processInstanceId)){
+				errorMsg = "必输参数:当前流程实例processInstanceId不能为空";
 			}
+			if(StringUtil.isEmpty(taskId)){
+				errorMsg = "必输参数:当前任务号taskId不能为空";
+			}
+			if(StringUtil.isEmpty(fromUserId)){
+				errorMsg = "必输参数:当前任务处理人fromUserId不能为空";
+			}
+			if(StringUtil.isEmpty(fromUserName)){
+				errorMsg = "必输参数:当前任务处理人fromUserName不能为空";
+			}
+			if(StringUtil.isEmpty(destTaskKey)){
+				errorMsg = "必输参数:退回的目标节点destTaskKey不能为空";
+			}
+			if(StringUtil.isNotEmpty(errorMsg)){
+				resultMap.put("type", "empty");
+				resultMap.put("msg", errorMsg);
+			}else {
+				String msg = GFJsonUtil.get().getProperty(json, "content");
+				Map<String, Object> variables = new HashMap<>();
+				boolean hasComments = GFJsonUtil.get().containsKey(json, "comments");
+				if (hasComments) {
+					BaseVO baseVO = getBaseVO(json, taskId);
+					baseVO.setProcessStatus(BaseVO.APPROVAL_FAILED);
+					final String workFloWTitle = StringUtil.isEmpty(baseVO.getTitle()) ? "请求" : baseVO.getTitle();
+					String description = baseVO.getCreateName() + " 的" + workFloWTitle + "被 " + fromUserName + "驳回,需修改后重新提交！";
+					baseVO.setDescription(description);
+					variables.put("entity", baseVO);
+				}
 
-			this.cusTaskService.rollBackToAssignActivitiKey(taskId,fromUserId,destTaskKey,msg,variables);
-			resultMap.put("type", "success");
-			resultMap.put("msg", "任务退回成功！");
+				int destTaskIndex = 0;
+				List<HistoricActivityInstance> finishActivities = this.processControllder.getFinishedActivityInstances(processInstanceId,"userTask");
+				for (int i = 0;i<finishActivities.size();i++){
+					if(destTaskKey.equals(finishActivities.get(i).getActivityId())){
+						destTaskIndex = i;
+						break;
+					}
+				}
+				int toDeleteActivitySize = finishActivities.size() - destTaskIndex;
+				this.cusTaskService.rollBackToAssignActivitiKey(taskId, fromUserId, destTaskKey, toDeleteActivitySize, msg, variables);
+				resultMap.put("type", "success");
+				resultMap.put("msg", "任务退回成功！");
+			}
 		} catch (Exception e) {
 			resultMap.put("type", "error");
 			resultMap.put("msg", e.getMessage());
@@ -1085,50 +1118,4 @@ public class TaskController {
 		return resultJson;
 	}
 
-	/**
-	 * 退回到指定节点方法二
-	 * @param json:{
-	 * 			  fromUserId:'',//处理人id，不能为空<br/>
-	 *            destTaskKey:'',//退回至目标节点Key，不能为空<br/>
-	 *            taskId:'',//任务id，不能为空<br/>
-	 *            content:'',//评论内容，可为空<br/>
-	 *            contentInfo:{},//业务内容，如果需要更新页面的业务信息，则传该参数，否则可不传<br/>
-	 *            comments:[],//评论列表,需要保持评论列表中的下一接收人
-	 *            }
-	 * @return
-	 */
-//	@RequestMapping("/rollBackTaskTo")
-	public String rollBackTaskToNode(@RequestBody String json) {
-		Map<String, Object> resultMap = new HashMap<>();
-		try {
-			String taskId = GFJsonUtil.get().getProperty(json, "taskId");
-			String fromUserId = GFJsonUtil.get().getProperty(json, "fromUserId");
-			String fromUserName = GFJsonUtil.get().getProperty(json, "fromUserName");
-			String destTaskKey = GFJsonUtil.get().getProperty(json, "destTaskKey");
-			String msg = GFJsonUtil.get().getProperty(json, "content");
-			Map<String, Object> variables = new HashMap<>();
-			boolean hasComments = GFJsonUtil.get().containsKey(json, "comments");
-			if(hasComments) {
-				BaseVO baseVO = getBaseVO(json,taskId);
-				baseVO.setProcessStatus(BaseVO.APPROVAL_FAILED);
-				final String workFloWTitle = StringUtil.isEmpty(baseVO.getTitle()) ? "请求" : baseVO.getTitle();
-				String description = baseVO.getCreateName() + " 的" + workFloWTitle + "被 " + fromUserName + "驳回,需修改后重新提交！";
-				baseVO.setDescription(description);
-				variables.put("entity", baseVO);
-			}
-
-			this.cusTaskService.rollBackTaskToNode(taskId, fromUserId,destTaskKey,msg,variables);
-			resultMap.put("type", "success");
-			resultMap.put("msg", "任务退回成功！");
-		} catch (Exception e) {
-			resultMap.put("type", "error");
-			resultMap.put("msg", e.getMessage());
-			e.printStackTrace();
-		}
-		String resultJson = GFJsonUtil.get().toJson(resultMap);
-		return resultJson;
-	}
-	public List<Task> getTaskByProcessInstanceId(String processInstanceId) {
-		return this.cusTaskService.getTaskByProcessInstanceId(processInstanceId);
-	}
 }

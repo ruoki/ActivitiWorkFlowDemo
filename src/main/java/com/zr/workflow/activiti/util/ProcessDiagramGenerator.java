@@ -18,7 +18,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.activiti.engine.impl.bpmn.behavior.ParallelMultiInstanceBehavior;
+import org.activiti.engine.impl.bpmn.behavior.UserTaskActivityBehavior;
 import org.activiti.engine.impl.bpmn.parser.BpmnParse;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.activiti.engine.impl.pvm.PvmTransition;
@@ -282,6 +285,12 @@ public class ProcessDiagramGenerator {
 		return generateDiagram(processDefinition, "jpg", Collections.<String> emptyList());
 	}
 
+	/**
+	 *
+	 * 初始化画布
+	 * @param processDefinition
+	 * @return
+	 */
 	protected static ProcessDiagramCanvas initProcessDiagramCanvas(ProcessDefinitionEntity processDefinition) {
 		int minX = Integer.MAX_VALUE;
 		int maxX = 0;
@@ -289,6 +298,7 @@ public class ProcessDiagramGenerator {
 		int maxY = 0;
 
 		if (processDefinition.getParticipantProcess() != null) {
+			//表示processDefinition是协作池中的参与者的对象，目前仅用于存储图形信息和池名称
 			ParticipantProcess pProc = processDefinition.getParticipantProcess();
 
 			minX = pProc.getX();
@@ -296,9 +306,9 @@ public class ProcessDiagramGenerator {
 			minY = pProc.getY();
 			maxY = pProc.getY() + pProc.getHeight();
 		}
-
-		for (ActivityImpl activity : processDefinition.getActivities()) {
-
+		List<ActivityImpl> activities = getActivitiesByProcessDefinition(processDefinition,"");
+		for (ActivityImpl activity : activities) {
+			//各个节点的图形信息
 			// width
 			if (activity.getX() + activity.getWidth() > maxX) {
 				maxX = activity.getX() + activity.getWidth();
@@ -362,6 +372,27 @@ public class ProcessDiagramGenerator {
 		return new ProcessDiagramCanvas(maxX + 100, maxY + 100, 0, 0);
 	}
 
+
+	/**
+	 * 根据流程定义获取流程所有节点
+	 * @param processDefinition 流程定义
+	 * @param activityType 节点类型 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
+	 * @return
+	 */
+	public static List<ActivityImpl> getActivitiesByProcessDefinition(ProcessDefinitionEntity processDefinition, String activityType) {
+		List<ActivityImpl> activitiList = processDefinition.getActivities();
+		if(StringUtil.isNotEmpty(activityType)) {//查询特定类型的节点
+			if("userTask".equalsIgnoreCase(activityType)) {
+				activitiList = activitiList.stream().filter(
+						(ActivityImpl activiti) -> activiti.getActivityBehavior() instanceof UserTaskActivityBehavior || activiti.getActivityBehavior() instanceof ParallelMultiInstanceBehavior)
+						.collect(Collectors.toList());
+			}
+		}
+		return activitiList;
+	}
+
 	protected interface ActivityDrawInstruction {
 		void draw(ProcessDiagramCanvas processDiagramCreator, ActivityImpl activityImpl);
 	}
@@ -408,13 +439,14 @@ public class ProcessDiagramGenerator {
 
 		// Draw activities and their sequence-flows
 		// 循环当前流程定义中的所有节点，绘制节点和节点上的流程线，如果节点已经执行过这高亮显示
-		for (ActivityImpl activity : processDefinition.getActivities()) {
+		List<ActivityImpl> activities = getActivitiesByProcessDefinition(processDefinition,"");
+		for (ActivityImpl activity : activities) {
 			drawActivity(processDiagramCanvas, activity, highLightedActivities);
 		}
 
 		// 绘制当前所有已执行的节点的所有流出流程线，如果流程线已被执行过，则高亮显示
 		for (int index = 1; index <= highLightedActivities.size(); index++) {
-			for (ActivityImpl activity : processDefinition.getActivities()) {
+			for (ActivityImpl activity : activities) {
 				if (highLightedActivities.get(index-1).equals(activity.getId())) {
 					drawActivityFlowHighLight(processDiagramCanvas, activity, highLightedActivities, index);
 					// 最后一个节点红色显示

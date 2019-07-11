@@ -21,6 +21,7 @@ import org.activiti.engine.history.HistoricTaskInstance;
 import org.activiti.engine.history.HistoricVariableInstance;
 import org.activiti.engine.impl.identity.Authentication;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
+import org.activiti.engine.impl.pvm.process.ActivityImpl;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.runtime.ProcessInstance;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import com.zr.workflow.activiti.entity.BaseVO;
 import com.zr.workflow.activiti.entity.Page;
 import com.zr.workflow.activiti.util.ProcessDefinitionCache;
+import com.zr.workflow.activiti.util.ProcessDiagramGenerator;
 import com.zr.workflow.activiti.util.StringUtil;
 
 
@@ -123,24 +125,22 @@ public class ProcessService{
 
 	/**
 	 * 启动流程
-	 * @param baseVO
+	 * @param businesskey
+	 * @param startUserId
 	 * @param variables
 	 * @return
-	 * @throws Exception
+	 * @throws RuntimeException
 	 */
-	public ProcessInstance startWorkFlow(BaseVO baseVO, Map<String, Object> variables) throws Exception {
+	public ProcessInstance startWorkFlowByKey(String businesskey,String startUserId, Map<String, Object> variables) throws RuntimeException {
 
-		final String businesskey = baseVO.getBusinessKey();// 设置业务key
 		final String procDefKey = businesskey.split("\\:")[0];
 		// 根据流程定义KEY查询最新版本的流程定义
 		ProcessDefinitionEntity procDef = (ProcessDefinitionEntity) findProcessDefinitionByKey(procDefKey);
 		if (procDef == null) {
 			throw new RuntimeException("流程定义KEY为" + procDefKey + "流程定义未找到，请重新发布");
 		}
-		Authentication.setAuthenticatedUserId(baseVO.getCreateId());// 设置流程的发起人start_userId
-
+		Authentication.setAuthenticatedUserId(startUserId);// 设置流程的发起人start_userId
 		ProcessInstance instance = runtimeService.startProcessInstanceByKey(procDefKey, businesskey, variables);
-
 		return instance;
 	}
 
@@ -201,7 +201,7 @@ public class ProcessService{
 					.processDefinitionKeyIn(processDefKeys).orderByProcessInstanceStartTime().desc();
 		}
 
-		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(page, historQuery);
 		return processList;
 	}
 
@@ -222,7 +222,7 @@ public class ProcessService{
 			historQuery = historyService.createHistoricProcessInstanceQuery()
 					.startedBy(userCode).processDefinitionKeyIn(processDefKeys).orderByProcessInstanceStartTime().desc();
 		}
-		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(page, historQuery);
 		return processList;
 	}
 
@@ -230,7 +230,7 @@ public class ProcessService{
 		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
 				.startedBy(userCode).processInstanceId(processInstanceId).orderByProcessInstanceStartTime().desc();
 
-		List<BaseVO> processList = queryHistoryProcessInstanceList(null, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(null, historQuery);
 		if(processList != null && processList.size()>0) {
 			return processList.get(0);
 		}
@@ -252,7 +252,7 @@ public class ProcessService{
 			historQuery = getHisProInsQueryStartedBy(userCode,processDefKeys);
 		}
 
-		List<BaseVO> processList = queryHistoryProcessInstanceList(page, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(page, historQuery);
 		return processList;
 	}
 
@@ -296,7 +296,7 @@ public class ProcessService{
 	}
 
 
-	private List<BaseVO> queryHistoryProcessInstanceList(Page<BaseVO> page, HistoricProcessInstanceQuery historQuery) {
+	private List<BaseVO> historyProcessInstance2BaseVO(Page<BaseVO> page, HistoricProcessInstanceQuery historQuery) {
 		if (historQuery == null)
 			return new ArrayList<>();
 
@@ -508,7 +508,7 @@ public class ProcessService{
 				throw new Exception();
 			} else {
 				List<HistoricActivityInstance> historicActivityInstanceList = getHistoricActivityInstanceList(
-						processInstanceId);
+						processInstanceId,"");
 				// 已执行的节点ID集合
 				List<String> executedActivityIdList = new ArrayList<String>();
 				int index = 1;
@@ -533,26 +533,46 @@ public class ProcessService{
 		}
 	}
 	
-
-
 	/**
-	 * 获取流程历史中已执行节点，并按照节点在流程中执行先后顺序排序
-	 * @param processInstanceId
+	 * 根据流程实例id 获取流程所有节点
+	 * @param processInstanceId 流程实例id
+	 * @param activityType 节点类型 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
 	 * @return
 	 */
-	public List<HistoricActivityInstance> getHistoricActivityInstanceList(String processInstanceId) {
-		List<HistoricActivityInstance> historicActivityInstanceList = getHistoricActivityInstanceList(processInstanceId,"");
-		return historicActivityInstanceList;
+	public List<ActivityImpl> getActivitiesByProcessInstance(String processInstanceId, String activityType){
+		// 获取流程发布Id信息
+		String definitionId = this.runtimeService.createProcessInstanceQuery().processInstanceId(processInstanceId)
+				.singleResult().getProcessDefinitionId();
+		List<ActivityImpl> activitiList = getActivitiesByProcessDefinition(definitionId, activityType);
+		return activitiList;
+	}
+
+	/**
+	 * 根据流程定义id获取流程所有节点
+	 * @param processDefinitionId 流程定义id
+	 * @param activityType 节点类型 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
+	 * @return
+	 */
+	public List<ActivityImpl> getActivitiesByProcessDefinition(String processDefinitionId, String activityType) {
+		ProcessDefinitionEntity processDefinition = (ProcessDefinitionEntity) ProcessDefinitionCache.get().getProcessDefination(processDefinitionId);
+		List<ActivityImpl> activitiList = ProcessDiagramGenerator.getActivitiesByProcessDefinition(processDefinition,activityType);
+		return activitiList;
 	}
 
 
 	/**
 	 * 获取流程历史中已执行节点，并按照节点在流程中执行先后顺序排序
 	 * @param processInstanceId
-	 * @param activityType
+	 * @param activityType 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
 	 * @return
 	 */
-	public List<HistoricActivityInstance> getHistoricActivityInstanceList(String processInstanceId,String activityType) {
+	public List<HistoricActivityInstance> getFinishedActivityInstanceList(String processInstanceId,String activityType) {
 		List<HistoricActivityInstance> historicActivityInstanceList;
 		if(StringUtil.isNotEmpty(activityType)) {
 			historicActivityInstanceList = historyService
@@ -560,11 +580,39 @@ public class ProcessService{
 					.orderByHistoricActivityInstanceId().asc().list();
 		}else {
 			historicActivityInstanceList = historyService
+					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).finished()
+					.orderByHistoricActivityInstanceId().asc().list();
+		}
+		sortList(historicActivityInstanceList);
+		return historicActivityInstanceList;
+	}
+
+
+	/**
+	 * 获取流程历史执行节点(包含已执行的和当前节点)，并按照节点在流程中执行先后顺序排序
+	 * @param processInstanceId
+	 * @param activityType 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
+	 * @return
+	 */
+	public List<HistoricActivityInstance> getHistoricActivityInstanceList(String processInstanceId,String activityType) {
+		List<HistoricActivityInstance> historicActivityInstanceList;
+		if(StringUtil.isNotEmpty(activityType)) {
+			historicActivityInstanceList = historyService
+					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).activityType(activityType)
+					.orderByHistoricActivityInstanceId().asc().list();
+		}else {
+			historicActivityInstanceList = historyService
 					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId)
 					.orderByHistoricActivityInstanceId().asc().list();
 		}
-		historicActivityInstanceList.sort(new Comparator<HistoricActivityInstance>() {
+		sortList(historicActivityInstanceList);
+		return historicActivityInstanceList;
+	}
 
+	private void sortList(List<HistoricActivityInstance> historicActivityInstanceList) {
+		historicActivityInstanceList.sort(new Comparator<HistoricActivityInstance>() {
 			public int compare(HistoricActivityInstance o1, HistoricActivityInstance o2) {
 				try {
 					Date dt1 = o1.getEndTime();
@@ -582,7 +630,6 @@ public class ProcessService{
 				return 0;
 			}
 		});
-		return historicActivityInstanceList;
 	}
 
 

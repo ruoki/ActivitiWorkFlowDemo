@@ -63,12 +63,16 @@
         		<bean class="com.zr.workflow.activiti.util.CustomGroupEntityManagerFactory">
         			<property name="customGroupEntityManager" ref="customGroupEntityManager"></property>
         		</bean>
+				<bean class="com.zr.workflow.activiti.util.CustomHistoricTaskInstanceEntityManagerFactory">
+					<property name="customHistoricTaskInstanceEntityManager" ref="customHistoricTaskInstanceEntityManager"></property>
+				</bean>
         	</list>
         </property>
   	</bean>
     <!-- 注册自定义用户管理类 -->
   	<bean id="customUserEntityManager" class="com.zr.workflow.activiti.util.CustomUserEntityManager"></bean>
     <bean id="customGroupEntityManager" class="com.zr.workflow.activiti.util.CustomGroupEntityManager"></bean>
+    <bean id="customHistoricTaskInstanceEntityManager" class="com.zr.workflow.activiti.util.CustomHistoricTaskInstanceEntityManager"></bean>
     
     
     <!-- 加载activiti引擎processEngine --> 

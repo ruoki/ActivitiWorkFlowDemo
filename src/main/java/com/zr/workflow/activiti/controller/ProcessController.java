@@ -19,6 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.activiti.engine.history.HistoricActivityInstance;
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.impl.identity.Authentication;
+import org.activiti.engine.impl.pvm.process.ActivityImpl;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.runtime.ProcessInstance;
 import org.apache.commons.io.FileUtils;
@@ -207,6 +208,7 @@ public abstract class ProcessController {
 	 *            candidate_names:'',//指定下一节点执行人name<br/>
 	 *            contentInfoId:'',//业务id，用于删除流程时删除相关的业务信息<br/>
 	 *            contentInfo:'',//与流程无关的业务信息<br/>
+	 *            excuteFirstTask:'true',//是否自动执行第一个任务<br/>
 	 *             }
 	 */
 	@RequestMapping(value = "/start")
@@ -233,17 +235,21 @@ public abstract class ProcessController {
 
 					Map<String, Object> variables = genareteVariable(baseVO);//初始化必要的流程变量
 
-					instance = processService.startWorkFlow(baseVO, variables);//启动流程
+					variables.put("entity", baseVO);
+					instance = processService.startWorkFlowByKey(baseVO.getBusinessKey(),baseVO.getCreateId(), variables);//启动流程
 
 					baseVO.setProcessInstanceId(instance.getId());
 
+					String excuteFirstTaskStr = GFJsonUtil.get().getProperty(params, "excuteFirstTask");
+					boolean excuteFirstTask = "false".equals(excuteFirstTaskStr) ? false : true;
+					if(excuteFirstTask) {
 					//执行第一个任务
 					String isPass = GFJsonUtil.get().getProperty(params, "isPass");
 					List<String> nextAssignes = cusTaskService.excuteFirstTask(instance.getId(),isPass, baseVO, variables);
-
+						resultMap.put("nextAssignes", nextAssignes);
+					}
 					resultMap.put("msg", "流程启动成功");
 					resultMap.put("type", "success");
-					resultMap.put("nextAssignes", nextAssignes);
 
 				} catch (Exception e) {
 					resultMap.put("msg", e);
@@ -657,9 +663,15 @@ public abstract class ProcessController {
 				resultMap.put("msg", "param processInstanceId can not be empty");
 				resultMap.put("type", "fail");
 			}else {
-				this.processService.activateProcessInstance(processInstanceId);
-				resultMap.put("msg", "流程激活成功");
-				resultMap.put("type", "success");
+			    ProcessInstance instance = this.processService.getProcessInstanceById(processInstanceId);
+			    if(instance.isSuspended()) {
+                    this.processService.activateProcessInstance(processInstanceId);
+                    resultMap.put("msg", "流程激活成功");
+                    resultMap.put("type", "success");
+                }else {
+                    resultMap.put("msg", "流程已处于激活状态，无需激活");
+                    resultMap.put("type", "success");
+                }
 			}
 		} catch (Exception e) {
 			resultMap.put("msg", e.getMessage());
@@ -719,9 +731,15 @@ public abstract class ProcessController {
 				resultMap.put("msg", "param processInstanceId can not be empty");
 				resultMap.put("type", "fail");
 			}else {
-				this.processService.suspendProcessInstance(processInstanceId);
-				resultMap.put("msg", "流程挂起成功");
-				resultMap.put("type", "success");
+                ProcessInstance instance = this.processService.getProcessInstanceById(processInstanceId);
+                if(instance.isSuspended()) {
+                    resultMap.put("msg", "流程已处于挂起状态，无需挂起");
+                    resultMap.put("type", "success");
+                }else {
+                    this.processService.suspendProcessInstance(processInstanceId);
+                    resultMap.put("msg", "流程挂起成功");
+                    resultMap.put("type", "success");
+                }
 			}
 		} catch (Exception e) {
 			resultMap.put("msg", e.getMessage());
@@ -762,7 +780,48 @@ public abstract class ProcessController {
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
 	}
-	
+
+	/**
+	 * 查询所有流程节点
+	 * @param processDefinitionId 流程定义id，两个只能传一个，最好传该参数
+	 * @param processInstanceId 流程实例id,两个只能传一个
+	 * @param activityType 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
+	 * @return
+	 */
+	@RequestMapping("/getAllActivities")
+	public String getAllActivities(@RequestParam(value = "processDefinitionId",required = false) String processDefinitionId,
+								   @RequestParam(value = "processInstanceId",required = false) String processInstanceId,
+								   @RequestParam(value = "activityType", required = false) String activityType) {
+		Map<String, Object> resultMap = new HashMap<>();
+		if(StringUtil.isEmpty(processDefinitionId)&& StringUtil.isEmpty(processInstanceId)){
+			resultMap.put("type", "empty");
+			resultMap.put("msg", "必传参数不能为空");
+		}else if(StringUtil.isNotEmpty(processDefinitionId)&& StringUtil.isNotEmpty(processInstanceId)){
+			resultMap.put("type", "error");
+			resultMap.put("msg", "参数 processDefinitionId 或 processInstanceId 只能传一个");
+		}else {
+			try {
+				List<ActivityImpl> activities;
+				if(StringUtil.isNotEmpty(processDefinitionId)){
+					activities = this.processService.getActivitiesByProcessDefinition(processDefinitionId,activityType);
+				}else {
+					activities = this.processService.getActivitiesByProcessInstance(processInstanceId,activityType);
+				}
+				System.out.println("所有节点 ：" + activities);
+				resultMap.put("type", "success");
+				resultMap.put("data", activities);
+			} catch (Exception e) {
+				resultMap.put("type", "error");
+				resultMap.put("msg", e.getMessage());
+				e.printStackTrace();
+			}
+		}
+		String resultJson = GFJsonUtil.get().toJson(resultMap);
+		return resultJson;
+	}
+
 	/**
 	 * 查询所有流程历史中已执行节点
 	 * @param processInstanceId
@@ -775,17 +834,9 @@ public abstract class ProcessController {
 	public String getAllFinishedActivities(@RequestParam("processInstanceId") String processInstanceId,@RequestParam(value = "activityType", required = false) String activityType) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			List<HistoricActivityInstance> hiActivityInstances = this.processService.getHistoricActivityInstanceList(processInstanceId,activityType);
-			// 定义有序map，相同的key,只添加一次
-			Map<String, HistoricActivityInstance> map = new LinkedHashMap<>();
-			for (HistoricActivityInstance pd : hiActivityInstances) {
-				if(!map.containsKey(pd.getActivityId())) {
-					map.put(pd.getActivityId(), pd);
-				}
-			}
-			List<HistoricActivityInstance> linkedList = new LinkedList<HistoricActivityInstance>(map.values());
-			
-			System.out.println("所有节点 ：" + linkedList);
+			List<HistoricActivityInstance> linkedList = getFinishedActivityInstances(processInstanceId, activityType);
+
+			System.out.println("所有已执行节点 ：" + linkedList);
 			resultMap.put("type", "success");
 			resultMap.put("data", linkedList);
 		} catch (Exception e) {
@@ -795,6 +846,18 @@ public abstract class ProcessController {
 		}
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
+	}
+
+	public List<HistoricActivityInstance> getFinishedActivityInstances(@RequestParam("processInstanceId") String processInstanceId, @RequestParam(value = "activityType", required = false) String activityType) {
+		List<HistoricActivityInstance> hiActivityInstances = this.processService.getFinishedActivityInstanceList(processInstanceId,activityType);
+		// 定义有序map，相同的key,只添加一次
+		Map<String, HistoricActivityInstance> map = new LinkedHashMap<>();
+		for (HistoricActivityInstance pd : hiActivityInstances) {
+			if(!map.containsKey(pd.getActivityId())) {
+				map.put(pd.getActivityId(), pd);
+			}
+		}
+		return new LinkedList<>(map.values());
 	}
 
 
