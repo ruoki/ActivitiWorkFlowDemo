@@ -3,7 +3,6 @@ package com.zr.workflow.activiti.service;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -15,6 +14,7 @@ import org.activiti.engine.HistoryService;
 import org.activiti.engine.RepositoryService;
 import org.activiti.engine.RuntimeService;
 import org.activiti.engine.history.HistoricActivityInstance;
+import org.activiti.engine.history.HistoricActivityInstanceQuery;
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.history.HistoricProcessInstanceQuery;
 import org.activiti.engine.history.HistoricTaskInstance;
@@ -65,12 +65,12 @@ public class ProcessService{
 	public List<ProcessDefinition> findLastetDeployedProcessList() {
 		List<ProcessDefinition> list = findDeployedProcessList();
 		// 定义有序map，相同的key,添加map值后，后面的会覆盖前面的值
-		Map<String, ProcessDefinition> map = new LinkedHashMap<String, ProcessDefinition>();
+		Map<String, ProcessDefinition> map = new LinkedHashMap<>();
 		// 遍历相同的key，替换最新的值
 		for (ProcessDefinition pd : list) {
 			map.put(pd.getKey(), pd);
 		}
-		List<ProcessDefinition> linkedList = new LinkedList<ProcessDefinition>(map.values());
+		List<ProcessDefinition> linkedList = new LinkedList<>(map.values());
 		
 		return linkedList;
 	}
@@ -187,12 +187,12 @@ public class ProcessService{
 	/**
 	 * 查询所有流程实例（包括结束的和正在运行的）<br/>
 	 * @param page
+	 * @param userName
 	 * @param processDefKeys
 	 * @return
-	 * @throws Exception
 	 */
-	public List<BaseVO> findAllProcessInstances(Page<BaseVO> page,List<String> processDefKeys) throws Exception {
-		HistoricProcessInstanceQuery historQuery = null;
+	public List<BaseVO> findAllProcessInstances(Page<BaseVO> page, String userName, List<String> processDefKeys){
+		HistoricProcessInstanceQuery historQuery;
 		if(null == processDefKeys || processDefKeys.size() == 0) {
 			historQuery = historyService.createHistoricProcessInstanceQuery()
 				.orderByProcessInstanceStartTime().desc();
@@ -201,7 +201,7 @@ public class ProcessService{
 					.processDefinitionKeyIn(processDefKeys).orderByProcessInstanceStartTime().desc();
 		}
 
-		List<BaseVO> processList = historyProcessInstance2BaseVO(page, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(page,userName, historQuery);
 		return processList;
 	}
 
@@ -209,12 +209,12 @@ public class ProcessService{
 	 * 查询我的流程实例（包括结束的和正在运行的）
 	 * @param page
 	 * @param userCode
+	 * @param userName
 	 * @param processDefKeys
 	 * @return
-	 * @throws Exception
 	 */
-	public List<BaseVO> findMyProcessInstances(Page<BaseVO> page, String userCode,List<String> processDefKeys) throws Exception {
-		HistoricProcessInstanceQuery historQuery = null;
+	public List<BaseVO> findMyProcessInstances(Page<BaseVO> page, String userCode, String userName, List<String> processDefKeys){
+		HistoricProcessInstanceQuery historQuery;
 		if(null == processDefKeys || processDefKeys.size() == 0) {
 			historQuery = historyService.createHistoricProcessInstanceQuery()
 				.startedBy(userCode).orderByProcessInstanceStartTime().desc();
@@ -222,37 +222,61 @@ public class ProcessService{
 			historQuery = historyService.createHistoricProcessInstanceQuery()
 					.startedBy(userCode).processDefinitionKeyIn(processDefKeys).orderByProcessInstanceStartTime().desc();
 		}
-		List<BaseVO> processList = historyProcessInstance2BaseVO(page, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(page, userName, historQuery);
 		return processList;
 	}
 
-	public BaseVO findProcessInstance(String userCode,String processInstanceId) {
-		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
-				.startedBy(userCode).processInstanceId(processInstanceId).orderByProcessInstanceStartTime().desc();
+	/**
+	 * 根据实例id查询流程实例
+	 * @param processInstanceId
+	 * @return
+	 */
+	public BaseVO findProcessInstanceByInstanceId(String userName,String processInstanceId) {
+		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstanceId).orderByProcessInstanceStartTime().desc();
 
-		List<BaseVO> processList = historyProcessInstance2BaseVO(null, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(null, userName, historQuery);
 		if(processList != null && processList.size()>0) {
 			return processList.get(0);
 		}
 		return null;
 	}
+
+	/**
+	 * 根据用户id和实例id查询流程实例
+	 * @param userId
+	 * @param userName
+	 * @param processInstanceId
+	 * @return
+	 */
+	public BaseVO findProcessInstance(String userId,String userName,String processInstanceId) {
+		HistoricProcessInstanceQuery historQuery = historyService.createHistoricProcessInstanceQuery()
+				.startedBy(userId).processInstanceId(processInstanceId).orderByProcessInstanceStartTime().desc();
+
+		List<BaseVO> processList = historyProcessInstance2BaseVO(null, userName, historQuery);
+		if(processList != null && processList.size()>0) {
+			return processList.get(0);
+		}
+		return null;
+	}
+
 	/**
 	 * 查询已结束的流程实例<br/>
 	 * @param page
 	 * @param userCode
+	 * @param userName
 	 * @param isInvolved
-	 * @param processDefKeys 
+	 * @param processDefKeys
 	 * @return
 	 */
-	public List<BaseVO> findFinishedProcessInstances(Page<BaseVO> page, String userCode, boolean isInvolved, List<String> processDefKeys) {
-		HistoricProcessInstanceQuery historQuery = null;
+	public List<BaseVO> findFinishedProcessInstances(Page<BaseVO> page, String userCode, String userName, boolean isInvolved, List<String> processDefKeys) {
+		HistoricProcessInstanceQuery historQuery;
 		if (isInvolved) {
 			historQuery = getHisProInsQueryInvolvedUser(userCode,processDefKeys);
 		} else {
 			historQuery = getHisProInsQueryStartedBy(userCode,processDefKeys);
 		}
 
-		List<BaseVO> processList = historyProcessInstance2BaseVO(page, historQuery);
+		List<BaseVO> processList = historyProcessInstance2BaseVO(page, userName, historQuery);
 		return processList;
 	}
 
@@ -265,7 +289,7 @@ public class ProcessService{
 	 * @return
 	 */
 	private HistoricProcessInstanceQuery getHisProInsQueryStartedBy(String userCode, List<String> processDefKeys) {
-		HistoricProcessInstanceQuery historQuery = null;
+		HistoricProcessInstanceQuery historQuery;
 		if(null == processDefKeys || processDefKeys.size() == 0) {
 			historQuery = historyService.createHistoricProcessInstanceQuery()
 					.startedBy(userCode).finished().orderByProcessInstanceEndTime().desc();
@@ -284,7 +308,7 @@ public class ProcessService{
 	 * @return
 	 */
 	private HistoricProcessInstanceQuery getHisProInsQueryInvolvedUser(String userCode, List<String> processDefKeys) {
-		HistoricProcessInstanceQuery historQuery = null;
+		HistoricProcessInstanceQuery historQuery;
 		if(null == processDefKeys || processDefKeys.size() == 0) {
 			historQuery = historyService.createHistoricProcessInstanceQuery()
 					.involvedUser(userCode).finished().orderByProcessInstanceEndTime().desc();
@@ -296,42 +320,58 @@ public class ProcessService{
 	}
 
 
-	private List<BaseVO> historyProcessInstance2BaseVO(Page<BaseVO> page, HistoricProcessInstanceQuery historQuery) {
+	private List<BaseVO> historyProcessInstance2BaseVO(Page<BaseVO> page, String userName, HistoricProcessInstanceQuery historQuery) {
 		if (historQuery == null)
 			return new ArrayList<>();
 
-		List<HistoricProcessInstance> list = new ArrayList<>();
-		list = historQuery.list();
-		if(null != page) {//分页
-			//			Integer totalSum = historQuery.list().size();
-			//			int[] pageParams = page.getPageParams(totalSum);
-			//			list = historQuery.listPage(pageParams[0], pageParams[1]);
-			int[] pageParams = page.getPageParams(list.size());
-			int startIndex = pageParams[0] < list.size() ? pageParams[0] : 0;
-			int toIndex = (pageParams[0]+pageParams[1]) < list.size() ? pageParams[0]+pageParams[1] : list.size();
-			list = list.subList(startIndex, toIndex);
+		List<HistoricProcessInstance> list;
+		int listSize = (int) historQuery.count();
+		if(null != page && listSize > 0) {//分页
+			int[] indexs = getIndex(page,listSize);
+			list = historQuery.listPage(indexs[0], indexs[1]);
+		}else{
+			list = historQuery.list();
 		}
 
-		List<BaseVO> processList = castProcessToBaseVo(list);
+		List<BaseVO> processList = castProcessToBaseVo(userName,listSize,list);
 		return processList;
 	}
 
-	private List<BaseVO> castProcessToBaseVo(List<HistoricProcessInstance> list) {
+
+	/**
+	 * 获取列表的起始与结束索引
+	 * @param page
+	 * @param size
+	 * @return
+	 */
+	public int[] getIndex(Page page,int size) {
+		int[] pageParams = page.getPageParams(size);
+		int startIndex = pageParams[0] < size ? pageParams[0] : 0;
+		int toIndex = (pageParams[0]+pageParams[1]) < size ? pageParams[0]+pageParams[1] : size;
+//		int[] pageParams = page.getPageParams();
+//		int startIndex = pageParams[0];
+//		int toIndex = pageParams[0]+pageParams[1];
+		return new int[]{startIndex, toIndex};
+	}
+
+
+	private List<BaseVO> castProcessToBaseVo(String userName,int totalSize, List<HistoricProcessInstance> list) {
 		List<BaseVO> processList = new ArrayList<>();
 		for (HistoricProcessInstance historicProcessInstance : list) {
 			String processInstanceId = historicProcessInstance.getId();
-			BaseVO base = null;
+			BaseVO base;
 			if (null != historicProcessInstance.getEndTime()) {
 				base = getBaseVOFromHistoryVariable(processInstanceId);
 				base.setDeleteReason(historicProcessInstance.getDeleteReason());
 				base.setEnd(true);
 			}else {
-				base = (BaseVO) getBaseVOFromRu_Variable(processInstanceId);
+				base = getBaseVOFromRu_Variable(processInstanceId);
+
 			}
-			HistoricTaskInstance historicTaskInstance = null;
-			historicTaskInstance = historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstanceId).orderByHistoricTaskInstanceEndTime().desc().list().get(0);
+			List<HistoricTaskInstance> hTaskInstanceList = historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstanceId).orderByHistoricTaskInstanceEndTime().desc().list();
+			HistoricTaskInstance historicTaskInstance = hTaskInstanceList.size() > 0 ? hTaskInstanceList.get(0) : null;
 			if (null == base) continue;
-			cusTaskService.setBaseVO(base,null,historicTaskInstance,null, historicProcessInstance);
+			cusTaskService.setBaseVO(base,userName,totalSize,null,historicTaskInstance,null, historicProcessInstance);
 			processList.add(base);
 		}
 		return processList;
@@ -347,14 +387,14 @@ public class ProcessService{
 	}
 
 
-	public void deleteProcessInstance(String processInstanceId, String deleteReason) throws Exception {
+	public void deleteProcessInstance(String processInstanceId, String deleteReason){
 		deleteProcessInstance(processInstanceId, deleteReason, false);
 	}
 
 	/**
 	 * 删除流程实例，可级联删除
 	 */
-	public void deleteProcessInstance(String processInstanceId, String deleteReason, boolean cascade) throws Exception {
+	public void deleteProcessInstance(String processInstanceId, String deleteReason, boolean cascade){
 		boolean isEnd = isProcessEnd(processInstanceId);
 		if (!isEnd) {
 			runtimeService.deleteProcessInstance(processInstanceId, deleteReason);
@@ -452,24 +492,21 @@ public class ProcessService{
 	 * @param list
 	 */
 	private static void listSort(List<HistoricVariableInstance> list) {
-		Collections.sort(list, new Comparator<HistoricVariableInstance>() {
-
-			public int compare(HistoricVariableInstance o1, HistoricVariableInstance o2) {
-				try {
-					Date dt1 = o1.getCreateTime();
-					Date dt2 = o2.getCreateTime();
-					if (dt1 == null || dt2 == null)
-						return -1;
-					if (dt1.getTime() >= dt2.getTime()) {
-						return -1;
-					} else {
-						return 1;
-					}
-				} catch (Exception e) {
-					e.printStackTrace();
+		Collections.sort(list, (o1, o2) -> {
+			try {
+				Date dt1 = o1.getCreateTime();
+				Date dt2 = o2.getCreateTime();
+				if (dt1 == null || dt2 == null)
+					return -1;
+				if (dt1.getTime() >= dt2.getTime()) {
+					return -1;
+				} else {
+					return 1;
 				}
-				return 0;
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
+			return 0;
 		});
 	}
 
@@ -479,9 +516,8 @@ public class ProcessService{
 	 * @param resourceType
 	 * @param deploymentId
 	 * @return
-	 * @throws Exception
 	 */
-	public InputStream getDiagramByProDefinitionId_noTrace(String resourceType, String deploymentId) throws Exception {
+	public InputStream getDiagramByProDefinitionId_noTrace(String resourceType, String deploymentId){
 		ProcessDefinition processDefinition = findProcessDefinitionByDeploymentId(deploymentId);
 		String resourceName = "";
 		if (resourceType.equals("png") || resourceType.equals("image")) {
@@ -573,18 +609,54 @@ public class ProcessService{
 	 * @return
 	 */
 	public List<HistoricActivityInstance> getFinishedActivityInstanceList(String processInstanceId,String activityType) {
-		List<HistoricActivityInstance> historicActivityInstanceList;
+		HistoricActivityInstanceQuery hActivityInstanceQuery;
 		if(StringUtil.isNotEmpty(activityType)) {
-			historicActivityInstanceList = historyService
-					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).activityType(activityType).finished()
-					.orderByHistoricActivityInstanceId().asc().list();
+			hActivityInstanceQuery = getHistoricActivityInstanceQueryBy(processInstanceId, activityType);
 		}else {
-			historicActivityInstanceList = historyService
-					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).finished()
-					.orderByHistoricActivityInstanceId().asc().list();
+			hActivityInstanceQuery = getHistoricActivityInstanceQuery(processInstanceId);
 		}
+		List<HistoricActivityInstance> historicActivityInstanceList = hActivityInstanceQuery.list();
 		sortList(historicActivityInstanceList);
 		return historicActivityInstanceList;
+	}
+
+	/**
+	 * 获取指定记录数的流程历史中已执行节点，并按照节点在流程中执行先后顺序倒序排序
+	 * @param processInstanceId
+	 * @param activityType 为空或不传时查询所有节点；
+	 * 					'userTask':用户节点；
+	 * 					'exclusiveGateway':网关节点
+	 * @param rows 查询记录数
+	 * @return
+	 */
+	public List<HistoricActivityInstance> getFinishedActivityInstanceListLimit(String processInstanceId,String activityType,int rows) {
+		HistoricActivityInstanceQuery hActivityInstanceQuery;
+		if(StringUtil.isNotEmpty(activityType)) {
+			hActivityInstanceQuery = historyService
+					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).activityType(activityType).finished()
+					.orderByHistoricActivityInstanceId().desc();
+		}else {
+			hActivityInstanceQuery = historyService
+					.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).finished()
+					.orderByHistoricActivityInstanceId().desc();
+		}
+		List<HistoricActivityInstance> historicActivityInstanceList = hActivityInstanceQuery.listPage(0,rows);
+		sortList(historicActivityInstanceList);
+		return historicActivityInstanceList;
+	}
+
+	private HistoricActivityInstanceQuery getHistoricActivityInstanceQuery(String processInstanceId) {
+		HistoricActivityInstanceQuery hActivityInstanceQuery = historyService
+				.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).finished()
+				.orderByHistoricActivityInstanceId().asc();
+		return hActivityInstanceQuery;
+	}
+
+	private HistoricActivityInstanceQuery getHistoricActivityInstanceQueryBy(String processInstanceId, String activityType) {
+		HistoricActivityInstanceQuery hActivityInstanceQuery = historyService
+				.createHistoricActivityInstanceQuery().processInstanceId(processInstanceId).activityType(activityType).finished()
+				.orderByHistoricActivityInstanceId().asc();
+		return hActivityInstanceQuery;
 	}
 
 
@@ -612,23 +684,21 @@ public class ProcessService{
 	}
 
 	private void sortList(List<HistoricActivityInstance> historicActivityInstanceList) {
-		historicActivityInstanceList.sort(new Comparator<HistoricActivityInstance>() {
-			public int compare(HistoricActivityInstance o1, HistoricActivityInstance o2) {
-				try {
-					Date dt1 = o1.getEndTime();
-					Date dt2 = o2.getEndTime();
-					if (dt1 == null || dt2 == null)
-						return 1;
-					if (dt1.getTime() >= dt2.getTime()) {
-						return 1;
-					} else {
-						return -1;
-					}
-				} catch (Exception e) {
-					e.printStackTrace();
+		historicActivityInstanceList.sort((o1, o2) -> {
+			try {
+				Date dt1 = o1.getEndTime();
+				Date dt2 = o2.getEndTime();
+				if (dt1 == null || dt2 == null)
+					return 1;
+				if (dt1.getTime() >= dt2.getTime()) {
+					return 1;
+				} else {
+					return -1;
 				}
-				return 0;
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
+			return 0;
 		});
 	}
 

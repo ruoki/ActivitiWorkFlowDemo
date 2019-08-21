@@ -35,13 +35,13 @@
 	</select>
 	
 	
-	<select id="deleteByProcDefKey" parameterType="String">
+	<delete id="deleteByProcDefKey" parameterType="String">
 		delete from act_cus_user_task where PROC_DEF_KEY=#{procDefKey}
-	</select>
+	</delete>
 	
-	<select id="deleteAll">
+	<delete id="deleteAll">
 		delete from act_cus_user_task
-	</select>
+	</delete>
 	
 	<insert id="add" useGeneratedKeys="true" keyProperty="id" parameterType="com.zr.workflow.activiti.entity.CusUserTask">
 	  insert into act_cus_user_task 

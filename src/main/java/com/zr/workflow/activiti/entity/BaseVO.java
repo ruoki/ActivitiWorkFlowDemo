@@ -21,35 +21,16 @@ public class BaseVO implements Serializable {
 	 * 任务通过的流程描述 
 	 */
 	public final static String SUB_DESCRIPTION_PASS = "已被通过";
-
-	/** 待审批 */
-	public static final String WAITING_FOR_APPROVAL = "WAITING_FOR_APPROVAL";
-	/** 审批成功：通过 */
-	public static final String APPROVAL_SUCCESS = "APPROVAL_SUCCESS";
-	/** 审批失败：驳回 */
-	public static final String APPROVAL_FAILED = "APPROVAL_FAILED";
-	/** 委托 */
-	public static final String TASK_PENDING = "PENDING";
-	/** 委托完成 */
-	public static final String TASK_RESOLVED = "RESOLVED";
-	/** 认领 */
-	public static final String TASK_CLAIMED = "TASK_CLAIMED";
-	/** 归档 */
-	public static final String FILED = "FILED";
-	/** 结束 */
-	public static final String CANCEL = "END";
 	private int id;
 
 	private String createId;// 创建人
-	private String createName;
+	private String createName;// 创建人
 	private String createTime;// 流程的创建时间
 	private String processEndTime;// 流程的结束时间
-	private String reason;
+	private String reason;// 申请理由
 	private String owner;// 拥有者
-	// 申请的标题
-	private String title;
-	// 业务类型
-	private String businessType;
+	private String title;// 申请的标题
+	private String businessType;// 业务类型
 	private String deploymentId;// 流程部署id
 	private String processInstanceId;// 流程实例id
 	private String deleteReason;// 删除原因
@@ -83,6 +64,7 @@ public class BaseVO implements Serializable {
 	private String candidate_names;//下一节点执行人,多个用逗号隔开
 
 	private List<CommentVO> comments;//评论列表
+	private int total;
 
 	public int getId() {
 		return id;
@@ -392,8 +374,8 @@ public class BaseVO implements Serializable {
 		return processStatus;
 	}
 
-	public void setProcessStatus(String processStatus) {
-		this.processStatus = processStatus;
+	public void setProcessStatus(ProcessStatus processStatus) {
+		this.processStatus = null != processStatus ? processStatus.toString() : "";
 	}
 
 
@@ -445,6 +427,13 @@ public class BaseVO implements Serializable {
 		return comments;
 	}
 
+	public void setTotal(int total) {
+		this.total = total;
+	}
+
+	public int getTotal() {
+		return total;
+	}
 	// 流程任务
 	private Task task;
 

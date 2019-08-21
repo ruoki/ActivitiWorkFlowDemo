@@ -71,7 +71,7 @@ public class CusUserTaskService {
 	/**
 	 * 读取用户任务节点信息保存到usertask表
 	 * 
-	 * @param processDefinition
+	 * @param processDefinitionId
 	 * @param baseVO
 	 * @throws Exception
 	 */
@@ -80,17 +80,24 @@ public class CusUserTaskService {
 		List<ActivityImpl> activitiList = ProcessDefinitionCache.get().getActivities(processDefinitionId);
 		for (ActivityImpl activity : activitiList) {
 			ActivityBehavior activityBehavior = activity.getActivityBehavior();
-			if (activityBehavior instanceof UserTaskActivityBehavior) {
+			setActivityInfo(baseVO, activityBehavior);
+		}
+	}
 
-				initUserTaskActivity(baseVO, (UserTaskActivityBehavior) activityBehavior,CusUserTask.TYPE_NORMAL);
-
-			} else if (activityBehavior instanceof ParallelMultiInstanceBehavior) {
-
-				ParallelMultiInstanceBehavior multiInstanceBehavior = (ParallelMultiInstanceBehavior) activityBehavior;
-				ActivityBehavior innerActivityBehavior = multiInstanceBehavior.getInnerActivityBehavior();
-				if (innerActivityBehavior instanceof UserTaskActivityBehavior) {
-					initUserTaskActivity(baseVO, (UserTaskActivityBehavior) innerActivityBehavior,CusUserTask.TYPE_MULTI);
-				}
+	/**
+	 * 设置用户任务节点信息保存到usertask表
+	 * @param baseVO
+	 * @param activityBehavior
+	 * @throws Exception
+	 */
+	private void setActivityInfo(BaseVO baseVO, ActivityBehavior activityBehavior) throws Exception {
+		if (activityBehavior instanceof UserTaskActivityBehavior) {
+			initUserTaskActivity(baseVO, (UserTaskActivityBehavior) activityBehavior, CusUserTask.TYPE_NORMAL);
+		} else if (activityBehavior instanceof ParallelMultiInstanceBehavior) {
+			ParallelMultiInstanceBehavior multiInstanceBehavior = (ParallelMultiInstanceBehavior) activityBehavior;
+			ActivityBehavior innerActivityBehavior = multiInstanceBehavior.getInnerActivityBehavior();
+			if (innerActivityBehavior instanceof UserTaskActivityBehavior) {
+				initUserTaskActivity(baseVO, (UserTaskActivityBehavior) innerActivityBehavior,CusUserTask.TYPE_MULTI);
 			}
 		}
 	}
@@ -168,7 +175,7 @@ public class CusUserTaskService {
 	}
 
 
-	public void setUserTaskAssgine(BaseVO baseVO, CusUserTask cusUserTask, String assigneeExpression) throws Exception {
+	public void setUserTaskAssgine(BaseVO baseVO, CusUserTask cusUserTask, String assigneeExpression){
 		final String activitiType = cusUserTask.getActivityType();
 		String user_id = baseVO.getCandidate_ids();
 		if(StringUtil.isNotEmpty(assigneeExpression) && assigneeExpression.contains("applyuserid") || (CusUserTask.TYPE_NORMAL.equals(activitiType) && !user_id.contains(","))){
@@ -184,10 +191,8 @@ public class CusUserTaskService {
 	 * @param cusUserTask 
 	 * @param baseVO 流程相关实体对象
 	 * @param assigneeExpression 流程中设置的指定人变量表达式
-	 * @throws Exception
 	 */
-	private void setAssignee(CusUserTask cusUserTask,  final BaseVO baseVO, String assigneeExpression)
-			throws Exception {
+	private void setAssignee(CusUserTask cusUserTask,  final BaseVO baseVO, String assigneeExpression) {
 		Map<String, String> candidateUser = new HashMap<>();
 		cusUserTask.setTaskType(CusUserTask.TYPE_ASSIGNEE);
 
@@ -327,36 +332,36 @@ public class CusUserTaskService {
 	}
 
 
-	public void doAdd(CusUserTask cusUserTask) throws Exception {
+	public void doAdd(CusUserTask cusUserTask){
 		userTaskDao.add(cusUserTask);
 	}
 
 
-	public void doUpdate(CusUserTask cusUserTask) throws Exception {
+	public void doUpdate(CusUserTask cusUserTask){
 		this.userTaskDao.update(cusUserTask);
 	}
 
 
-	public void deleteByProcDefKey(String procDefKey) throws Exception {
+	public void deleteByProcDefKey(String procDefKey){
 		this.userTaskDao.deleteByProcDefKey(procDefKey);
 	}
 
-	public CusUserTask findById(Integer id) throws Exception {
+	public CusUserTask findById(Integer id){
 		return this.userTaskDao.getBeanById(id);
 	}
 
-	public Integer deleteAll() throws Exception {
+	public Integer deleteAll(){
 		return this.userTaskDao.deleteAll();
 	}
 
-	public List<CusUserTask> findByProcDefKey(String procDefKey) throws Exception {
+	public List<CusUserTask> findByProcDefKey(String procDefKey){
 		return this.userTaskDao.findByProcDefKey(procDefKey);
 	}
 
 	/**
 	 * 根据流程businessKey和任务节点类型查询所有节点
 	 */
-	public List<CusUserTask> findByProcAndActivityType(String procDefKey, String activityType) throws Exception {
+	public List<CusUserTask> findByProcAndActivityType(String procDefKey, String activityType){
 		return this.userTaskDao.findByProcAndActivityType(procDefKey,activityType);
 	}
 
@@ -364,12 +369,12 @@ public class CusUserTaskService {
 	 * 根据流程businessKey和任务节点key查询当前节点的处理人
 	 */
 
-	public CusUserTask findByProcAndTask(String procDefKey, String taskDefKey) throws Exception {
+	public CusUserTask findByProcAndTask(String procDefKey, String taskDefKey){
 		return this.userTaskDao.findByProcAndTask(procDefKey, taskDefKey);
 	}
 
 
-	public List<CusUserTask> getAll() throws Exception {
+	public List<CusUserTask> getAll(){
 		return this.userTaskDao.getAllList();
 	}
 

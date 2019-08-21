@@ -28,6 +28,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.zr.workflow.activiti.service.ModelService;
 import com.zr.workflow.activiti.util.GFJsonUtil;
+import com.zr.workflow.activiti.util.StringUtil;
 
 /**
  * 流程模型
@@ -90,9 +91,14 @@ public class ModelController {
 	public String deleteModel(String modelId) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			delete(modelId);
-			resultMap.put("msg", "删除成功");
-			resultMap.put("type", "success");
+			if (StringUtil.isEmpty(modelId)) {
+				resultMap.put("msg", "必输参数:流程模型modelId不能为空");
+				resultMap.put("type", "empty");
+			}else {
+				delete(modelId);
+				resultMap.put("msg", "删除成功");
+				resultMap.put("type", "success");
+			}
 		} catch (Exception e) {
 			resultMap.put("msg", "删除失败");
 			resultMap.put("type", "fail");
@@ -109,10 +115,15 @@ public class ModelController {
 	public String deploy(@RequestParam("modelId") String modelId) {
 		Map<String, String> resultMap = new HashMap<>();
 		try {
-			Deployment deployment = deployByModelId(modelId);
-			resultMap.put("msg", "部署成功");
-			resultMap.put("type", "success");
-			resultMap.put("data", deployment.getId());
+			if (StringUtil.isEmpty(modelId)) {
+				resultMap.put("msg", "必输参数:流程模型modelId不能为空");
+				resultMap.put("type", "empty");
+			}else {
+				Deployment deployment = deployByModelId(modelId);
+				resultMap.put("msg", "部署成功");
+				resultMap.put("type", "success");
+				resultMap.put("data", deployment.getId());
+			}
 		} catch (Exception e) {
 			resultMap.put("msg", "部署失败");
 			resultMap.put("type", "error");
@@ -127,14 +138,23 @@ public class ModelController {
 		Map<String, String> resultMap = new HashMap<>();
 		try {
 			JSONArray models = GFJsonUtil.get().parseArray(json);
+			int failIndex = -1;
 			for (int i = 0; i < models.size(); i++) {
 				JSONObject model = (JSONObject) models.get(i);
 				String modelId = GFJsonUtil.get().getProperty(model,"id");
+				if(StringUtil.isEmpty(modelId)){
+					failIndex = i;
+					break;
+				}
 				deployByModelId(modelId);
 			}
-
-			resultMap.put("msg", "部署成功");
-			resultMap.put("type", "success");
+			if(failIndex != -1){
+				resultMap.put("type", "empty");
+				resultMap.put("msg", "必输参数:第"+failIndex+"个流程模型modelId为空");
+			}else {
+				resultMap.put("msg", "部署成功");
+				resultMap.put("type", "success");
+			}
 		} catch (Exception e) {
 			resultMap.put("msg", "部署失败");
 			resultMap.put("type", "error");
@@ -155,14 +175,24 @@ public class ModelController {
 		Map<String, String> resultMap = new HashMap<>();
 		try {
 			JSONArray models = GFJsonUtil.get().parseArray(json);
+			int failIndex = -1;
 			for (int i = 0; i < models.size(); i++) {
 				JSONObject model = (JSONObject) models.get(i);
 				String modelId = GFJsonUtil.get().getProperty(model,"id");
+				if(StringUtil.isEmpty(modelId)){
+					failIndex = i;
+					break;
+				}
 				delete(modelId);
 			}
 
-			resultMap.put("msg", "删除成功");
-			resultMap.put("type", "success");
+			if(failIndex != -1){
+				resultMap.put("type", "empty");
+				resultMap.put("msg", "必输参数:第"+failIndex+"个流程模型modelId为空");
+			}else {
+				resultMap.put("msg", "删除成功");
+				resultMap.put("type", "success");
+			}
 		} catch (Exception e) {
 			resultMap.put("msg", "删除失败");
 			resultMap.put("type", "error");
@@ -194,13 +224,13 @@ public class ModelController {
 
 			ByteArrayInputStream dataStream = model.containsKey("dataStream")
 					? (ByteArrayInputStream) model.get("dataStream")
-							: null;
-					String filename = model.containsKey("filename") ? model.get("filename").toString() : null;
+					: null;
+			String filename = model.containsKey("filename") ? model.get("filename").toString() : null;
 
-					IOUtils.copy(dataStream, response.getOutputStream());
-					response.setHeader("Content-Disposition",
-							"attachment; filename=" + java.net.URLEncoder.encode(filename, "UTF-8"));
-					response.flushBuffer();
+			IOUtils.copy(dataStream, response.getOutputStream());
+			response.setHeader("Content-Disposition",
+					"attachment; filename=" + java.net.URLEncoder.encode(filename, "UTF-8"));
+			response.flushBuffer();
 		} catch (Exception e) {
 			PrintWriter out = null;
 			try {

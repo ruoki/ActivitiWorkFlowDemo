@@ -137,7 +137,7 @@ public class GFJsonUtil {
 	 * @return
 	 */
 	public String toJsonByFastJson(Object obj) {
-		String json = JSON.toJSONString(obj,true);
+		String json = JSON.toJSONString(obj,false);//不格式化
 		return json;
 	}
 

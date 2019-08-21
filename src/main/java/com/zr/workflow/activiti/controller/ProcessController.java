@@ -22,6 +22,7 @@ import org.activiti.engine.impl.identity.Authentication;
 import org.activiti.engine.impl.pvm.process.ActivityImpl;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.runtime.ProcessInstance;
+import org.apache.avalon.framework.parameters.ParameterException;
 import org.apache.commons.io.FileUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +35,8 @@ import com.google.gson.reflect.TypeToken;
 import com.zr.workflow.activiti.entity.BaseVO;
 import com.zr.workflow.activiti.entity.CommentVO;
 import com.zr.workflow.activiti.entity.CusUserTask;
+import com.zr.workflow.activiti.entity.Page;
+import com.zr.workflow.activiti.entity.ProcessStatus;
 import com.zr.workflow.activiti.service.CusProcess;
 import com.zr.workflow.activiti.service.CusTaskService;
 import com.zr.workflow.activiti.service.CusUserTaskService;
@@ -42,6 +45,7 @@ import com.zr.workflow.activiti.util.DateFormatUtil;
 import com.zr.workflow.activiti.util.FileUtil;
 import com.zr.workflow.activiti.util.GFJsonUtil;
 import com.zr.workflow.activiti.util.StringUtil;
+
 
 
 /**
@@ -61,13 +65,21 @@ public abstract class ProcessController {
 	/**
 	 * 查询已部署的流程列表
 	 * 非最新版本的"deprecated"为true
-	 * 
+	 *
 	 * @return
 	 */
 	@RequestMapping("/findDeployedProcessList")
-	public String findDeployedProcessList(HttpServletRequest request) {
+	public String findDeployedProcessList(@RequestParam(value = "page", required = false) Integer page,
+										  @RequestParam(value = "rows", required = false) Integer rows,HttpServletRequest request) {
 		List<Map<String, Object>> processList = new ArrayList<>();
 		List<ProcessDefinition> linkedList = processService.findLastetDeployedProcessList();
+
+		int listSize = linkedList.size();
+		Page<ProcessDefinition> p = (null == page || null == rows) ? null : new Page<>(page, rows);
+		if(null != p && listSize > 0) {//分页
+			int[] indexs = this.processService.getIndex(p,listSize);
+			linkedList = linkedList.subList(indexs[0], indexs[1]);
+		}
 		for (ProcessDefinition pd : linkedList) {
 			Map<String, Object> map2 = new HashMap<>();
 			map2.put("id", pd.getId());
@@ -121,6 +133,7 @@ public abstract class ProcessController {
 
 		Map<String, Object> resultMap = new HashMap<>();
 		resultMap.put("data", processList);
+		resultMap.put("totalSize", listSize);
 		resultMap.put("projectPath", request.getContextPath());
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
@@ -136,9 +149,14 @@ public abstract class ProcessController {
 	public String deleteDeployment(@RequestParam("deploymentId") String deploymentId,HttpServletRequest request) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			deleteDeployedProcess(deploymentId,request);
-			resultMap.put("msg", "流程删除成功");
-			resultMap.put("type", "success");
+			if(StringUtil.isEmpty(deploymentId)){
+				resultMap.put("type", "empty");
+				resultMap.put("msg", "必输参数:流程部署deploymentId不能为空");
+			}else {
+				deleteDeployedProcess(deploymentId, request);
+				resultMap.put("msg", "流程删除成功");
+				resultMap.put("type", "success");
+			}
 		} catch (Exception e) {
 			resultMap.put("msg", "流程删除失败");
 			resultMap.put("type", "fail");
@@ -159,14 +177,25 @@ public abstract class ProcessController {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			JSONArray processList = GFJsonUtil.get().parseArray(json);
+			int failIndex = -1;
 			for (int i = 0; i < processList.size(); i++) {
 				JSONObject process = (JSONObject) processList.get(i);
 				String deploymentId = GFJsonUtil.get().getProperty(process, "deploymentId");
+				if(StringUtil.isEmpty(deploymentId)){
+					failIndex = i;
+					break;
+				}
 				deleteDeployedProcess(deploymentId,request);
 			}
 
-			resultMap.put("msg", "流程删除成功");
-			resultMap.put("type", "success");
+			if(failIndex != -1){
+				resultMap.put("type", "empty");
+				resultMap.put("msg", "必输参数:第"+failIndex+"个流程部署deploymentId为空");
+			}else {
+				resultMap.put("msg", "流程删除成功");
+				resultMap.put("type", "success");
+			}
+
 		} catch (Exception e) {
 			resultMap.put("msg", "流程删除失败");
 			resultMap.put("type", "error");
@@ -181,7 +210,7 @@ public abstract class ProcessController {
 		for (HistoricProcessInstance historicProcessInstance : pIList) {
 			String processInstanceId = historicProcessInstance.getId();
 			String businessKey = historicProcessInstance.getBusinessKey();
-			BaseVO baseVO = cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(processInstanceId);
+			BaseVO baseVO = cusTaskService.getBaseVOByTaskIdOrProcessInstanceId("",processInstanceId);
 			if(null != baseVO) {
 				JSONObject jsonObject = baseVO.getContentInfo();
 				String contentInfoId = "";
@@ -196,12 +225,12 @@ public abstract class ProcessController {
 
 	/**
 	 * 启动流程并执行第一个任务
-	 * 
+	 *
 	 * @param params:{
 	 *            userId:'',//流程创建者id<br/>
 	 *            userName:'',//流程创建者名称<br/>
 	 *            workFlowTitle:'',//流程名称<br/>
-	 *            businesskey:'',//业务key，用来绑定流程，命名规则：[流程名称:业务id（唯一）]<br/>
+	 *            businesskey:'',//业务key，用来绑定流程，命名规则：[流程key:业务id（唯一）]<br/>
 	 *            					比如人力外包周报为：monthlyreportForPersonProcess:113(userId):20180120(startTime):20180127(endTime)<br/>
 	 *            reason:'',//申请理由<br/>
 	 *            candidate_ids:'',//指定下一节点执行人id<br/>
@@ -215,11 +244,9 @@ public abstract class ProcessController {
 	public String startProcess(@RequestBody String params, HttpServletRequest request) {
 		Map<String, Object> resultMap = new HashMap<>();
 
-		BaseVO baseVO = makeBaseVO(request, params);
-		if (baseVO == null) {
-			resultMap.put("msg", "流程启动失败,必输参数当前用户user为空");
-			resultMap.put("type", "empty");
-		}else {
+		try {
+			BaseVO baseVO = makeBaseVO(params);
+
 			final String businesskey = baseVO.getBusinessKey();// 设置业务key
 			List<HistoricProcessInstance> processInstanceList = processService.getPIsByBusinessKey(businesskey);
 			ProcessInstance instance = null;
@@ -231,42 +258,62 @@ public abstract class ProcessController {
 					final String procDefKey = businesskey.contains(":") ? businesskey.split(":")[0] : "";
 					JSONObject jsonObject = baseVO.getContentInfo();
 					handleController(request, procDefKey,jsonObject);//业务处理
+
 					initUserTaskAssignees(baseVO);//初始化流程已有的节点执行人信息
 
 					Map<String, Object> variables = genareteVariable(baseVO);//初始化必要的流程变量
-
 					variables.put("entity", baseVO);
 					instance = processService.startWorkFlowByKey(baseVO.getBusinessKey(),baseVO.getCreateId(), variables);//启动流程
 
-					baseVO.setProcessInstanceId(instance.getId());
-
-					String excuteFirstTaskStr = GFJsonUtil.get().getProperty(params, "excuteFirstTask");
-					boolean excuteFirstTask = "false".equals(excuteFirstTaskStr) ? false : true;
-					if(excuteFirstTask) {
-					//执行第一个任务
-					String isPass = GFJsonUtil.get().getProperty(params, "isPass");
-					List<String> nextAssignes = cusTaskService.excuteFirstTask(instance.getId(),isPass, baseVO, variables);
-						resultMap.put("nextAssignes", nextAssignes);
+					if(instance != null && !StringUtil.isEmpty(instance.getId())) {
+						baseVO.setProcessInstanceId(instance.getId());
+						checkExcuteFirstTask(params, resultMap, baseVO, variables);
+						resultMap.put("msg", "流程启动成功");
+						resultMap.put("type", "success");
+					}else{
+						resultMap.put("msg", "流程启动失败");
+						resultMap.put("type", "delete");
+						deleteProcessInFo(resultMap, baseVO, businesskey, instance,request);
 					}
-					resultMap.put("msg", "流程启动成功");
-					resultMap.put("type", "success");
-
 				} catch (Exception e) {
-					resultMap.put("msg", e);
+					resultMap.put("msg", e.getMessage());
 					resultMap.put("type", "delete");
 					deleteProcessInFo(resultMap, baseVO, businesskey, instance,request);
 					e.printStackTrace();
 				}
 			}
-		}	
+		} catch (ParameterException e) {
+			resultMap.put("type", "empty");
+			resultMap.put("msg", e.getMessage());
+		}
 		String resultJson = GFJsonUtil.get().toJson(resultMap);
 		return resultJson;
 	}
 
 	/**
+	 * 执行第一个任务
+	 * @param params
+	 * @param resultMap
+	 * @param baseVO
+	 * @param variables
+	 * @throws Exception
+	 */
+	private void checkExcuteFirstTask(@RequestBody String params, Map<String, Object> resultMap, BaseVO baseVO,  Map<String, Object> variables) throws Exception {
+
+		String excuteFirstTaskStr = GFJsonUtil.get().getProperty(params, "excuteFirstTask");
+		boolean excuteFirstTask = "false".equals(excuteFirstTaskStr) ? false : true;
+		if(excuteFirstTask) {
+			//执行第一个任务
+			String isPass = GFJsonUtil.get().getProperty(params, "isPass");
+			List<String> nextAssignes = cusTaskService.excuteFirstTask(baseVO.getProcessInstanceId(), isPass, baseVO, variables);
+			resultMap.put("nextAssignes", nextAssignes);
+		}
+	}
+
+	/**
 	 * 初始化节点执行人保存到act_cus_user_task表<br/>
 	 * 自定义流程时，可实现CusProcess接口的setUserTaskAssgine方法，根据需求设置节点执行人；
-	 * 
+	 *
 	 * @param baseVO
 	 * @throws Exception
 	 */
@@ -354,13 +401,12 @@ public abstract class ProcessController {
 
 	/**
 	 * 请求参数生成BaseVO对象
-	 * @param request
-	 * 
+	 *
 	 * @param params:{
 	 *            userId:'',//流程创建者id<br/>
 	 *            userName:'',//流程创建者名称<br/>
 	 *            workFlowTitle:'',//流程名称<br/>
-	 *            businesskey:'',//业务key，用来绑定流程，命名规则：[流程名称:业务id（唯一）]<br/>
+	 *            businesskey:'',//业务key，用来绑定流程，命名规则：[流程key:业务id（唯一）]<br/>
 	 *            					比如人力外包周报为：monthlyreportForPersonProcess:113(userId):20180120(startTime):20180127(endTime)<br/>
 	 *            reason:'',//申请理由<br/>
 	 *            candidate_ids:'',//指定下一节点执行人id<br/>
@@ -370,21 +416,38 @@ public abstract class ProcessController {
 	 *             }
 	 * @return
 	 */
-	private BaseVO makeBaseVO(HttpServletRequest request, String params) {
+	private BaseVO makeBaseVO(String params) throws ParameterException {
 
 		final String userId = GFJsonUtil.get().getProperty(params, "userId");
-		if(StringUtil.isEmpty(userId))return null;
-
-		BaseVO baseVO = new BaseVO();
 		final String userName = GFJsonUtil.get().getProperty(params, "userName");
 		final String workFlowTitle = GFJsonUtil.get().getProperty(params, "workFlowTitle");
 		final String businesskey = GFJsonUtil.get().getProperty(params, "businesskey");// 设置业务key
+
+		String errorMsg = "";
+		if(StringUtil.isEmpty(userId)){
+			errorMsg = "必输参数:流程申请人userId不能为空";
+		}
+		if(StringUtil.isEmpty(userName)){
+			errorMsg = "必输参数:流程申请人名称userName不能为空";
+		}
+		if(StringUtil.isEmpty(workFlowTitle)){
+			errorMsg = "必输参数:流程名称workFlowTitle不能为空";
+		}
+		if(StringUtil.isEmpty(businesskey)){
+			errorMsg = "必输参数:流程businesskey不能为空，组成格式为:流程key:业务id(流程key和业务id中间用冒号隔开)";
+		}
+
+		if(StringUtil.isNotEmpty(errorMsg)){
+			throw new ParameterException(errorMsg);
+		}
+
 		final String reason = GFJsonUtil.get().getProperty(params, "reason");
 		String contentInfoId = GFJsonUtil.get().getProperty(params, "contentInfoId");
 		final JSONObject contentInfo = GFJsonUtil.get().getJSONObject(params,"contentInfo");
 		String candidate_ids = GFJsonUtil.get().getProperty(params, "candidate_ids");
 		String candidate_names = GFJsonUtil.get().getProperty(params, "candidate_names");
 
+		BaseVO baseVO = new BaseVO();
 		baseVO.setTitle(workFlowTitle);
 		baseVO.setReason(reason);
 		baseVO.setCandidate_ids(candidate_ids);// 下一节点执行人id
@@ -400,7 +463,7 @@ public abstract class ProcessController {
 		baseVO.setCreateId(userId);
 		baseVO.setCreateName(userName);
 		baseVO.setCreateTime(DateFormatUtil.format(new Date()));
-		baseVO.setProcessStatus(BaseVO.WAITING_FOR_APPROVAL);// 待审批
+		baseVO.setProcessStatus(ProcessStatus.WAITING_FOR_APPROVAL);// 待审批
 		baseVO.setDescription(userName + "提出" + workFlowTitle);
 		return baseVO;
 	}
@@ -412,13 +475,13 @@ public abstract class ProcessController {
 	 * @return
 	 */
 	@RequestMapping("/oneButtonToDeleteProcessInstance")
-	public String oneButtonToDeleteStartedProcess(@RequestBody String json,HttpServletRequest request) {
+	public String oneButtonToDeleteProcessInstance(@RequestBody String json,HttpServletRequest request) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			JSONArray processList = GFJsonUtil.get().parseArray(json);
 			for (int i = 0; i < processList.size(); i++) {
 				JSONObject process = (JSONObject) processList.get(i);
-				deleteStartedProcess(process.toString(),request);
+				deleteProcessInstance(process.toString(),request);
 			}
 
 			resultMap.put("msg", "流程删除成功");
@@ -448,9 +511,16 @@ public abstract class ProcessController {
 	 *             }
 	 */
 	@RequestMapping("/deleteProcessInstance")
-	public String deleteStartedProcess(@RequestBody String paramsJson,HttpServletRequest request) {
+	public String deleteProcessInstance(@RequestBody String paramsJson,HttpServletRequest request) {
 
+		Map<String, Object> resultMap = new HashMap<>();
 		final String processInstanceId = GFJsonUtil.get().getProperty(paramsJson, "processInstanceId");
+		if(StringUtil.isEmpty(processInstanceId)){
+			resultMap.put("type", "empty");
+			resultMap.put("msg", "必输参数:流程实例processInstanceId不能为空");
+			String resultJson = GFJsonUtil.get().toJson(resultMap);
+			return resultJson;
+		}
 		final String taskId = GFJsonUtil.get().getProperty(paramsJson, "taskId");
 		final String businessKey = GFJsonUtil.get().getProperty(paramsJson, "businessKey");
 		final String contentInfoId = GFJsonUtil.get().getProperty(paramsJson, "contentInfoId");
@@ -458,7 +528,6 @@ public abstract class ProcessController {
 		final String isDeleteHistory = GFJsonUtil.get().getProperty(paramsJson, "isDeleteHistory");
 		boolean cascade = StringUtil.isNotEmpty(isDeleteHistory)&& "false".equals(isDeleteHistory)?false:true;
 
-		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			if(StringUtil.isNotEmpty(taskId)) {
 				addComment(paramsJson, processInstanceId, taskId, reason);
@@ -483,15 +552,13 @@ public abstract class ProcessController {
 		final JSONObject contentInfo = GFJsonUtil.get().getJSONObject(paramsJson,"contentInfo");
 		final JSONArray comments = GFJsonUtil.get().getJSONArray(paramsJson,"comments");
 
-		BaseVO baseVO = this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId(taskId);
+		BaseVO baseVO = this.cusTaskService.getBaseVOByTaskIdOrProcessInstanceId("",taskId);
 
 		if(null != contentInfo) {
 			baseVO.setContentInfo(contentInfo);
 		}
 		if(null != comments) {
-			Gson gson = new Gson();
-			Type type = new TypeToken<List<CommentVO>>(){}.getType();
-			List<CommentVO> commentsRequest = gson.fromJson(comments.toString(), type);
+			List<CommentVO> commentsRequest = getCommentListFromJson(comments);
 			baseVO.setComments(commentsRequest);
 		}
 		if(null != contentInfo || null != comments) {
@@ -501,7 +568,12 @@ public abstract class ProcessController {
 		}
 		// 设置流程的start_userId和评论人的id
 		Authentication.setAuthenticatedUserId(userId);
-		this.cusTaskService.addComment(taskId, processInstanceId, reason);
+		this.cusTaskService.addComment(taskId, processInstanceId,ProcessStatus.ARCHIVE, reason);
+	}
+	public List<CommentVO> getCommentListFromJson(JSONArray comments) {
+		Gson gson = new Gson();
+		Type type = new TypeToken<List<CommentVO>>(){}.getType();
+		return gson.fromJson(comments.toString(), type);
 	}
 	/**
 	 * 删除流程
@@ -562,13 +634,15 @@ public abstract class ProcessController {
 	 * @param deploymentId
 	 * @param resourceType
 	 *            资源类型(xml|image)
-	 * @throws Exception
 	 */
 	@RequestMapping(value = "/showProcessImg")
-	public String loadByDeployment(@RequestParam("deploymentId") String deploymentId,
-			@RequestParam("resourceType") String resourceType,HttpServletRequest request) throws Exception {
+	public String showProcessImg(@RequestParam("deploymentId") String deploymentId,
+								 @RequestParam("resourceType") String resourceType,HttpServletRequest request){
 		try {
 
+			if(StringUtil.isEmpty(deploymentId)){
+				return "empty：必输参数:流程部署deploymentId不能为空";
+			}
 			String processImagesRoot = getProcessImageRoot(deploymentId, request);
 			final String subFix = resourceType.equalsIgnoreCase("xml") ? ".xml":".png";
 			String processImageName = deploymentId +"_"+ DateFormatUtil.getDoDay()+subFix;
@@ -600,6 +674,9 @@ public abstract class ProcessController {
 	@RequestMapping(value = "/trace")
 	public String traceProcess(@RequestParam("pid") String processInstanceId,HttpServletRequest request){
 		try {
+			if(StringUtil.isEmpty(processInstanceId)){
+				return "empty：必输参数:流程实例processInstanceId不能为空";
+			}
 			// 设置页面不缓存
 			String processImagesRoot = getProcessImageRoot(processInstanceId, request);
 			String processImageName = System.currentTimeMillis()+".png";
@@ -660,8 +737,8 @@ public abstract class ProcessController {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			if (StringUtil.isEmpty(processInstanceId)) {
-				resultMap.put("msg", "param processInstanceId can not be empty");
-				resultMap.put("type", "fail");
+				resultMap.put("msg", "必输参数:流程实例processInstanceId不能为空");
+				resultMap.put("type", "empty");
 			}else {
 			    ProcessInstance instance = this.processService.getProcessInstanceById(processInstanceId);
 			    if(instance.isSuspended()) {
@@ -690,14 +767,14 @@ public abstract class ProcessController {
 	 * @param processDefinitionKey
 	 * @return
 	 */
-	@RequestMapping("/activateProcessDefination")
-	public String activateProcessDefination(String processDefinitionKey) {
+	@RequestMapping("/activateProcessDefinition")
+	public String activateProcessDefinition(String processDefinitionKey) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 
 			if (StringUtil.isEmpty(processDefinitionKey)) {
-				resultMap.put("msg", "param processDefinitionKey can not be empty");
-				resultMap.put("type", "fail");
+				resultMap.put("msg", "流程processDefinitionKey不能为空");
+				resultMap.put("type", "empty");
 			}else {
 				this.processService.activateProcessDefination(processDefinitionKey);
 				resultMap.put("msg", "流程激活成功");
@@ -728,8 +805,8 @@ public abstract class ProcessController {
 		try {
 
 			if (StringUtil.isEmpty(processInstanceId)) {
-				resultMap.put("msg", "param processInstanceId can not be empty");
-				resultMap.put("type", "fail");
+				resultMap.put("msg", "必输参数:流程实例processInstanceId不能为空");
+				resultMap.put("type", "empty");
 			}else {
                 ProcessInstance instance = this.processService.getProcessInstanceById(processInstanceId);
                 if(instance.isSuspended()) {
@@ -765,8 +842,8 @@ public abstract class ProcessController {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
 			if (StringUtil.isEmpty(processDefinitionKey)) {
-				resultMap.put("msg", "param processDefinitionKey can not be empty");
-				resultMap.put("type", "fail");
+				resultMap.put("msg", "流程processDefinitionKey不能为空");
+				resultMap.put("type", "empty");
 			}else {
 				this.processService.suspendProcessDefinition(processDefinitionKey);
 				resultMap.put("msg", "流程挂起成功");
@@ -803,15 +880,27 @@ public abstract class ProcessController {
 			resultMap.put("msg", "参数 processDefinitionId 或 processInstanceId 只能传一个");
 		}else {
 			try {
+
+				List<Map<String, Object>> activityList = new ArrayList<>();
 				List<ActivityImpl> activities;
 				if(StringUtil.isNotEmpty(processDefinitionId)){
 					activities = this.processService.getActivitiesByProcessDefinition(processDefinitionId,activityType);
 				}else {
 					activities = this.processService.getActivitiesByProcessInstance(processInstanceId,activityType);
 				}
-				System.out.println("所有节点 ：" + activities);
+				for (ActivityImpl activity : activities) {
+					Map<String, Object> map2 = new HashMap<>();
+					map2.put("activityId", activity.getId());
+					map2.put("name", activity.getProperty("name"));
+					map2.put("type", activity.getProperty("type"));
+					map2.put("description", activity.getProperty("documentation"));
+					map2.put("processDefinitionId", activity.getProcessDefinition().getId());
+					map2.put("deploymentId", activity.getProcessDefinition().getDeploymentId());
+					activityList.add(map2);
+				}
+				System.out.println("所有节点 ：" + activityList);
 				resultMap.put("type", "success");
-				resultMap.put("data", activities);
+				resultMap.put("data", activityList);
 			} catch (Exception e) {
 				resultMap.put("type", "error");
 				resultMap.put("msg", e.getMessage());
@@ -834,11 +923,16 @@ public abstract class ProcessController {
 	public String getAllFinishedActivities(@RequestParam("processInstanceId") String processInstanceId,@RequestParam(value = "activityType", required = false) String activityType) {
 		Map<String, Object> resultMap = new HashMap<>();
 		try {
-			List<HistoricActivityInstance> linkedList = getFinishedActivityInstances(processInstanceId, activityType);
+			if (StringUtil.isEmpty(processInstanceId)) {
+				resultMap.put("msg", "必输参数:流程实例processInstanceId不能为空");
+				resultMap.put("type", "empty");
+			}else {
+				List<HistoricActivityInstance> linkedList = getFinishedActivityInstances(processInstanceId, activityType);
 
-			System.out.println("所有已执行节点 ：" + linkedList);
-			resultMap.put("type", "success");
-			resultMap.put("data", linkedList);
+				System.out.println("所有已执行节点 ：" + linkedList);
+				resultMap.put("type", "success");
+				resultMap.put("data", linkedList);
+			}
 		} catch (Exception e) {
 			resultMap.put("type", "error");
 			resultMap.put("msg", e.getMessage());
