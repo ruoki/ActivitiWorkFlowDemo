@@ -305,7 +305,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	<dependency>
 		<groupId>com.alibaba</groupId>
 		<artifactId>fastjson</artifactId>
-		<version>1.2.46</version>
+		<version>1.2.83</version>
 	</dependency>
   	<!-- JSON解析 end -->
   	
